@@ -9,6 +9,13 @@ let renderAudioDestination = null;
 let whisperTranscriber = null;
 let autoTranscriptChunks = [];
 let transcriptionSequence = 0;
+let draftSaveTimer = null;
+const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
+const FONT_PROFILES = {
+  serif: {label:'명조체 · 경건한 말씀', family:'Georgia, "Noto Serif KR", "Malgun Myeongjo", serif'},
+  clean: {label:'고딕체 · 또렷한 자막', family:'"Noto Sans KR", "Malgun Gothic", Arial, sans-serif'},
+  warm: {label:'따뜻한 바탕체', family:'"Gowun Batang", "Nanum Myeongjo", Georgia, serif'}
+};
 
 const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, 글자, 자막, 로고, 워터마크, 유명인 얼굴, 성직자 얼굴 모방, 과도한 광선, 판타지 마법, 잔혹한 폭력, 왜곡된 손과 얼굴';
 
@@ -18,6 +25,10 @@ $('#transcript').addEventListener('input', (event) => {
 });
 $('#source').addEventListener('input', updateProgress);
 $('#copyright-check').addEventListener('change', updateProgress);
+document.querySelectorAll('input[name="font-mode"]').forEach((input) => input.addEventListener('change', updateFontControls));
+$('#font-manual').addEventListener('change', updateFontControls);
+$('#result-font-mode').addEventListener('change', updateResultFontControls);
+$('#result-font-manual').addEventListener('change', updateResultFontControls);
 
 $('#audio-file').addEventListener('change', (event) => loadAudio(event.target.files[0]));
 ['dragenter','dragover'].forEach((name) => $('#dropzone').addEventListener(name, (event) => {
@@ -179,13 +190,16 @@ async function buildProject(transcript) {
       wordCursor = targetCursor;
     }
     const characters = chooseSceneCharacters(narration);
+    const setting = chooseSceneSetting(narration);
+    const characterDescription = buildCharacterDescription(characters, narration, setting);
     scenes.push({
       index: index + 1, start, end, narration,
-      prompt: makePrompt(narration, index, characters),
+      prompt: makePrompt(narration, index, characters, characterDescription),
       negativePrompt: commonNegative,
       visual: chooseSceneVisual(narration, index),
       characters,
-      setting: chooseSceneSetting(narration),
+      setting,
+      characterDescription,
       status: 'review_required'
     });
   }
@@ -197,6 +211,7 @@ async function buildProject(transcript) {
     duration,
     transcript,
     captions,
+    font: getSelectedFont(transcript),
     hashtags: makeHashtags(transcript),
     thumbnailPrompt: `고요한 새벽빛 아래 펼쳐진 성경과 따뜻한 빛, ${title}의 정서를 상징하는 절제된 수채화, 오른쪽 제목 여백, 16:9, 이미지 안 글자 없음`,
     scenes
@@ -266,10 +281,59 @@ function chooseSceneVisual(text, index) {
   return ['light','bible','path','water','seed'][index % 5];
 }
 
-function makePrompt(text, index, characters = []) {
+function makePrompt(text, index, characters = [], characterDescription = '') {
   const symbols = ['고요한 길과 따뜻한 빛','펼쳐진 성경과 창가의 자연광','흙 위의 작은 씨앗과 새벽빛','잔잔한 물결과 멀리 열린 길','빈 성당 의자와 부드러운 햇살'];
-  const people = characters.length ? `원고에 언급된 인물만 표현: ${characters.map(characterLabel).join(', ')}, 실제 유명인 얼굴 모방 없이 존중하는 비식별 성화풍 인물` : '원고에 인물이 명시되지 않아 사람은 추가하지 않음';
+  const people = characters.length ? `원고에 언급된 인물만 표현: ${characterDescription}` : '원고에 인물이 명시되지 않아 사람은 추가하지 않음';
   return `가톨릭 묵상 영상용 절제된 성화풍 수채화, “${text}”의 의미를 ${symbols[index % symbols.length]}으로 상징적으로 표현, ${people}, 원문에 없는 인물이나 사건 추가 금지, 베이지·짙은 청색·은은한 금색, 경건하고 고요한 분위기, 하단 자막 여백, 16:9, 글자 없음`;
+}
+
+function buildCharacterDescription(characters, text, setting) {
+  if (!characters.length) return '본문에 특정 인물이 언급되지 않았습니다. 사람을 추가하지 않고 장소와 상징만 표현합니다.';
+  const actions = /걸어|길|따르/.test(text) ? '천천히 길을 걷는 모습'
+    : /기도|찬미|감사/.test(text) ? '두 손을 모아 기도하거나 고요히 묵상하는 모습'
+    : /가르치|말씀|복음/.test(text) ? '상대에게 말씀을 전하거나 경청하는 모습'
+    : /치유|도움|돌보/.test(text) ? '따뜻하게 돌보고 돕는 모습'
+    : '원고의 흐름을 해치지 않는 차분한 자세';
+  const location = ({church:'성전 또는 성당의 절제된 실내',waterside:'1세기 갈릴래아를 연상시키는 물가',mountain:'단순한 산과 언덕',road:'먼지 나는 고요한 길',home:'소박한 가정의 실내', 'sacred-light':'부드러운 자연광이 비치는 절제된 공간'})[setting] || '절제된 공간';
+  const roleDetails = {
+    jesus:'예수님은 1세기 유대 지역의 성인 남성으로, 단정한 중동계 외모와 수수한 아이보리 겉옷, 과장되지 않은 온화한 표정',
+    mary:'성모 마리아는 푸른 망토와 절제된 베이지 옷차림, 평온하고 자애로운 분위기',
+    disciple:'제자·사도는 1세기 유대 지역의 소박한 여행자 복장과 경청하는 태도',
+    priest:'성직자는 전례 예복을 과장하지 않은 단정한 현대 가톨릭 사제 복장',
+    child:'아이는 시대와 장면에 어울리는 소박한 옷차림과 자연스러운 표정',
+    mother:'어머니는 소박한 의복과 따뜻한 보호자의 태도',
+    father:'아버지는 소박한 의복과 차분한 보호자의 태도',
+    sick:'도움이 필요한 사람은 존엄을 해치지 않는 단정한 모습',
+    crowd:'군중은 개별 얼굴을 특정하지 않는 절제된 배경 인물',
+    praying:'기도하는 사람은 특정 개인을 닮지 않는 단정한 실루엣',
+    person:'본문의 맥락에 맞는 비식별 인물 실루엣'
+  };
+  return `${characters.map((role) => roleDetails[role] || characterLabel(role)).join('; ')}. ${location}에서 ${actions}. 실제 유명인·성직자·개인 얼굴을 모방하지 않고, 원문에 없는 행동이나 인물을 추가하지 않습니다.`;
+}
+
+function getSelectedFont(text = '') {
+  const mode = document.querySelector('input[name="font-mode"]:checked')?.value || 'auto';
+  const manual = $('#font-manual').value || 'serif';
+  const resolved = mode === 'manual' ? manual : recommendFont(text);
+  return {mode, manual, resolved, label: FONT_PROFILES[resolved].label};
+}
+
+function recommendFont(text) {
+  if (/기도|묵상|성모|예수|복음|찬미/.test(text)) return 'serif';
+  if (text.length > 700) return 'clean';
+  return 'warm';
+}
+
+function updateFontControls() {
+  const mode = document.querySelector('input[name="font-mode"]:checked')?.value || 'auto';
+  $('#font-manual').disabled = mode !== 'manual';
+  const preview = getSelectedFont($('#transcript').value);
+  $('#font-recommendation').textContent = mode === 'auto' ? `자동 추천: ${preview.label}` : `직접 선택: ${preview.label}`;
+  if (currentProject) {
+    currentProject.font = preview;
+    updateProjectFontSummary();
+    persistDraft('글꼴 설정이 저장되었습니다.');
+  }
 }
 
 function chooseSceneCharacters(text) {
@@ -317,6 +381,12 @@ function makeHashtags(text) {
 }
 
 function renderProject(project) {
+  project.font ||= getSelectedFont(project.transcript || '');
+  project.scenes.forEach((scene) => {
+    scene.characters ||= chooseSceneCharacters(scene.narration || '');
+    scene.setting ||= chooseSceneSetting(scene.narration || '');
+    if (scene.characterDescription == null) scene.characterDescription = buildCharacterDescription(scene.characters, scene.narration || '', scene.setting);
+  });
   $('#input-panel').classList.add('hidden');
   $('#result-panel').classList.remove('hidden');
   $('#result-title').textContent = project.title;
@@ -325,12 +395,16 @@ function renderProject(project) {
   $('#duration-summary').textContent = `재생시간 ${formatTime(project.duration)} · ${project.scenes.length}개 장면`;
   $('#source-summary').textContent = `출처: ${project.source}`;
   $('#scene-count').textContent = `총 ${project.scenes.length}개`;
+  updateProjectFontSummary();
   $('#scene-list').innerHTML = project.scenes.map((scene,index) => `
     <article class="scene" data-index="${index}">
       <time>${formatTime(scene.start)}–${formatTime(scene.end)}</time>
-      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span></div><textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></div>
+      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span></div><label class="character-field">인물 묘사 · 영상 그림용<textarea aria-label="${scene.index}번 인물 묘사">${escapeHtml(scene.characterDescription)}</textarea></label><label class="prompt-field">AI 이미지 프롬프트<textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></label></div>
       <div><select aria-label="${scene.index}번 검수 상태"><option value="review_required">확인 필요</option><option value="verified">원문 확인됨</option></select></div>
     </article>`).join('');
+  document.querySelectorAll('.scene textarea, .scene select').forEach((element) => element.addEventListener('input', scheduleDraftSave));
+  document.querySelectorAll('.scene select').forEach((element) => element.addEventListener('change', scheduleDraftSave));
+  persistDraft('새 프로젝트가 이 기기에 저장되었습니다.');
   window.scrollTo({top: $('#result-panel').offsetTop - 85,behavior:'smooth'});
 }
 
@@ -338,10 +412,94 @@ function syncEdits() {
   if (!currentProject) return;
   document.querySelectorAll('.scene').forEach((row) => {
     const scene = currentProject.scenes[Number(row.dataset.index)];
-    scene.prompt = row.querySelector('textarea').value;
+    scene.characterDescription = row.querySelector('textarea[aria-label*="인물 묘사"]').value;
+    scene.prompt = row.querySelector('textarea[aria-label*="이미지 프롬프트"]').value;
     scene.status = row.querySelector('select').value;
   });
 }
+
+function updateProjectFontSummary() {
+  if (!currentProject?.font) return;
+  $('#project-font-summary').textContent = `${currentProject.font.mode === 'auto' ? '자동 추천' : '직접 선택'} · ${currentProject.font.label}`;
+  $('#result-font-mode').value = currentProject.font.mode;
+  $('#result-font-manual').value = currentProject.font.manual || currentProject.font.resolved;
+  $('#result-font-manual').disabled = currentProject.font.mode !== 'manual';
+}
+
+function updateResultFontControls() {
+  if (!currentProject) return;
+  const mode = $('#result-font-mode').value;
+  const manual = $('#result-font-manual').value;
+  $('#result-font-manual').disabled = mode !== 'manual';
+  document.querySelector(`input[name="font-mode"][value="${mode}"]`).checked = true;
+  $('#font-manual').value = manual;
+  $('#font-manual').disabled = mode !== 'manual';
+  currentProject.font = {mode, manual, resolved: mode === 'manual' ? manual : recommendFont(currentProject.transcript), label: FONT_PROFILES[mode === 'manual' ? manual : recommendFont(currentProject.transcript)].label};
+  updateProjectFontSummary();
+  persistDraft('글꼴 설정이 업데이트되었습니다.');
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => {
+    syncEdits();
+    persistDraft('수정 내용이 자동 저장되었습니다.');
+  }, 500);
+}
+
+function persistDraft(message = '이 기기에 저장되었습니다.') {
+  if (!currentProject) return;
+  try {
+    const snapshot = {
+      project: currentProject,
+      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked},
+      savedAt: new Date().toISOString(),
+      audioName: audioFile?.name || null
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(snapshot));
+    $('#save-state').textContent = `${message} ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch (error) {
+    console.warn('Draft save failed', error);
+    $('#save-state').textContent = '이 브라우저에서는 자동 저장을 사용할 수 없습니다.';
+  }
+}
+
+function showDraftRestore() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft?.project?.title) return;
+    $('#draft-banner').classList.remove('hidden');
+    $('#draft-summary').textContent = `${draft.project.title} · ${new Date(draft.savedAt).toLocaleDateString('ko-KR')}`;
+  } catch { /* Ignore unavailable or invalid local data. */ }
+}
+
+$('#restore-draft').addEventListener('click', () => {
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY));
+    if (!draft?.project) return;
+    $('#title').value = draft.form?.title || draft.project.title || '';
+    $('#source').value = draft.form?.source || draft.project.source || '';
+    $('#transcript').value = draft.form?.transcript || draft.project.transcript || '';
+    $('#copyright-check').checked = Boolean(draft.form?.copyright);
+    currentProject = draft.project;
+    currentProject.font ||= getSelectedFont(currentProject.transcript || '');
+    document.querySelector(`input[name="font-mode"][value="${currentProject.font.mode || 'auto'}"]`).checked = true;
+    $('#font-manual').value = currentProject.font.manual || currentProject.font.resolved || 'serif';
+    updateFontControls();
+    $('#char-count').textContent = `${$('#transcript').value.length.toLocaleString()}자`;
+    renderProject(currentProject);
+    $('#save-state').textContent = '저장된 프로젝트를 불러왔습니다. 영상을 다시 만들려면 원본 음성을 다시 선택해 주세요.';
+  } catch {
+    alert('저장된 프로젝트를 불러오지 못했습니다.');
+  }
+});
+
+$('#save-project').addEventListener('click', () => {
+  syncEdits();
+  persistDraft('변경한 프로젝트를 저장했습니다.');
+});
 
 function visualLabel(value) {
   return ({bible:'펼쳐진 성경',water:'생명의 물',seed:'자라나는 씨앗',path:'빛으로 가는 길',candle:'기도의 촛불',cross:'십자가',light:'말씀의 빛'})[value] || '말씀의 빛';
@@ -485,14 +643,16 @@ function drawVideoFrame(ctx, canvas, project, time) {
   ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
-  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local);
+  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local, scene.characterDescription || '');
 
-  ctx.fillStyle = 'rgba(255,253,247,.80)'; ctx.font = '600 28px "Malgun Gothic", sans-serif'; ctx.textAlign = 'left';
+  const videoFont = FONT_PROFILES[project.font?.resolved]?.family || FONT_PROFILES.serif.family;
+
+  ctx.fillStyle = 'rgba(255,253,247,.80)'; ctx.font = `600 28px ${videoFont}`; ctx.textAlign = 'left';
   ctx.fillText('VINCENTIO · 말씀 영상 스튜디오', 120, 105);
   ctx.fillStyle = colors[2]; ctx.fillRect(120, 146, 92, 4);
-  ctx.fillStyle = '#fffdf7'; ctx.font = '700 58px "Malgun Gothic", sans-serif';
+  ctx.fillStyle = '#fffdf7'; ctx.font = `700 58px ${videoFont}`;
   drawWrappedText(ctx, timedCaption?.text || scene.narration || '묵상의 여백', 120, 690, 1100, 82, 4);
-  ctx.fillStyle = 'rgba(255,255,255,.70)'; ctx.font = '28px "Malgun Gothic", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,.70)'; ctx.font = `28px ${videoFont}`;
   ctx.fillText(project.source, 120, 950);
   ctx.textAlign = 'right'; ctx.fillText(`${scene.index} / ${project.scenes.length}`, 1800, 950);
   ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(120, 995, 1680, 5);
@@ -540,7 +700,7 @@ function drawSceneIllustration(ctx, canvas, visual, colors, local) {
   ctx.restore();
 }
 
-function drawCharacterGroup(ctx, canvas, roles, colors, local) {
+function drawCharacterGroup(ctx, canvas, roles, colors, local, description) {
   if (!roles.length) return;
   const expanded = [];
   roles.forEach((role) => {
@@ -555,10 +715,10 @@ function drawCharacterGroup(ctx, canvas, roles, colors, local) {
   ctx.fillStyle = '#071e19';
   ctx.beginPath();ctx.ellipse(canvas.width*.75,820,390,55,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  people.forEach((role,index) => drawPerson(ctx,startX+index*spacing,800,role,colors,local,index));
+  people.forEach((role,index) => drawPerson(ctx,startX+index*spacing,800,role,colors,local,index,description));
 }
 
-function drawPerson(ctx, x, groundY, role, colors, local, index) {
+function drawPerson(ctx, x, groundY, role, colors, local, index, description = '') {
   const isChild = role === 'child';
   const scale = isChild ? .68 : role === 'sick' ? .82 : 1;
   const bob = Math.sin(local*1.2+index)*3;
@@ -570,6 +730,9 @@ function drawPerson(ctx, x, groundY, role, colors, local, index) {
     praying:['#6d7083','#b89567','#44332d'], person:['#667b70','#b48a63','#42342d']
   };
   const palette = palettes[role] || palettes.person;
+  if (/푸른|파란|청색/.test(description)) palette[0] = '#426f95';
+  if (/붉은|빨간|적색/.test(description)) palette[0] = '#a45048';
+  if (/흰|아이보리|밝은/.test(description)) palette[0] = '#e9dfc8';
   ctx.save();ctx.translate(x,groundY+bob);ctx.scale(scale,scale);
   if (role === 'jesus' || role === 'mary') {
     ctx.strokeStyle='rgba(244,214,145,.76)';ctx.lineWidth=8;ctx.beginPath();ctx.arc(0,-310,78,0,Math.PI*2);ctx.stroke();
@@ -616,3 +779,5 @@ function safeName(value){return value.replace(/[\\/:*?"<>|]/g,'_').slice(0,70)||
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}
 
 updateProgress();
+updateFontControls();
+showDraftRestore();

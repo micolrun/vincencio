@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#19362d">
   <meta name="description" content="음성에서 5초 장면표와 자막, 이미지 프롬프트를 만드는 빈첸시오 말씀방 영상 제작 도구">
   <title>빈첸시오 말씀방 영상 스튜디오</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=20260830-1">
-  <link rel="stylesheet" href="./styles.css?v=20260830-1">
-  <link rel="stylesheet" href="./homepage.css?v=20260830-1">
+  <link rel="manifest" href="./manifest.webmanifest?v=20260830-2">
+  <link rel="stylesheet" href="./styles.css?v=20260830-2">
+  <link rel="stylesheet" href="./homepage.css?v=20260830-2">
 </head>
 <body>
   <header class="topbar">
@@ -67,6 +67,10 @@
             <div><small>NEW PROJECT</small><h2>새 영상 설계</h2><p class="panel-intro">아래 순서대로 입력하면 버튼이 자동으로 활성화됩니다.</p></div>
             <span class="badge" id="mode-badge">브라우저 모드</span>
           </div>
+          <div class="draft-banner hidden" id="draft-banner">
+            <div><strong>저장된 프로젝트가 있습니다</strong><span id="draft-summary"></span></div>
+            <button class="ghost" id="restore-draft" type="button">불러오기</button>
+          </div>
 
           <div class="completion" id="completion" aria-live="polite">
             <div class="completion-head"><strong>제작 준비</strong><span id="completion-count">0 / 4 완료</span></div>
@@ -101,6 +105,20 @@
               <label for="source">성경 위치·승인된 출처</label>
               <input id="source" placeholder="예: 마태 13,1-9 · 사용 승인 URL">
             </div>
+          </div>
+
+          <div class="font-panel" aria-label="영상 글꼴 설정">
+            <div><strong>영상 글꼴</strong><span>자막과 영상 제목에 적용됩니다.</span></div>
+            <div class="font-controls">
+              <label><input type="radio" name="font-mode" value="auto" checked> 자동 추천</label>
+              <label><input type="radio" name="font-mode" value="manual"> 직접 선택</label>
+              <select id="font-manual" disabled aria-label="수동 영상 글꼴 선택">
+                <option value="serif">명조체 · 경건한 말씀</option>
+                <option value="clean">고딕체 · 또렷한 자막</option>
+                <option value="warm">따뜻한 바탕체</option>
+              </select>
+            </div>
+            <p id="font-recommendation">자동 추천: 원고의 분위기에 맞춰 글꼴을 고릅니다.</p>
           </div>
 
           <div class="input-step"><b>3</b><div><strong>자동 자막을 확인해 주세요</strong><span>AI가 받아쓴 내용을 직접 고칠 수 있습니다.</span></div><em>자동</em></div>
@@ -139,6 +157,10 @@
           </div>
 
           <div class="section-title"><div><small>SCENE PLAN</small><h3>5초 장면표</h3></div><span id="scene-count"></span></div>
+          <div class="project-settings">
+            <div><strong>영상 글꼴</strong><span id="project-font-summary"></span></div>
+            <div class="result-font-controls"><select id="result-font-mode" aria-label="영상 글꼴 모드"><option value="auto">자동 추천</option><option value="manual">직접 선택</option></select><select id="result-font-manual" aria-label="영상 수동 글꼴"><option value="serif">명조체</option><option value="clean">고딕체</option><option value="warm">따뜻한 바탕체</option></select></div>
+          </div>
           <p class="sync-note">음성의 말하기·침묵 구간을 분석해 자막을 배분합니다. 정확한 단어별 싱크는 AI 음성 전사 서버 연결 후 지원됩니다.</p>
           <div id="scene-list" class="scene-list"></div>
 
@@ -150,9 +172,11 @@
           <div class="actions">
             <button class="ghost" id="edit-again">입력 수정</button>
             <button class="ghost" id="download-srt">SRT 자막</button>
+            <button class="ghost" id="save-project" type="button">변경 저장</button>
             <button class="primary" id="download-json">프로젝트 저장</button>
             <button class="primary video-button" id="render-video">영상 만들기 <span>▶</span></button>
           </div>
+          <p class="save-state" id="save-state" aria-live="polite">수정 내용은 이 기기에 자동 저장됩니다.</p>
           <div class="render-status hidden" id="render-status" aria-live="polite">
             <div><strong id="render-message">영상을 준비하고 있습니다…</strong><span id="render-percent">0%</span></div>
             <div class="render-track"><i id="render-progress"></i></div>
@@ -167,6 +191,6 @@
     <span>빈첸시오 말씀방 영상 스튜디오</span>
     <span>사람의 묵상과 최종 승인을 중심으로 설계되었습니다.</span>
   </footer>
-  <script src="./app.js?v=20260830-1"></script>
+  <script src="./app.js?v=20260830-2"></script>
 </body>
 </html>

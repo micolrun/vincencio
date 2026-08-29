@@ -22,15 +22,21 @@ const FONT_PROFILES = {
   warm: {label:'따뜻한 바탕체', family:'"Gowun Batang", "Nanum Myeongjo", Georgia, serif'}
 };
 const DEFAULT_CHARACTER_LIBRARY = [
-  {id:'jesus', name:'예수님', role:'jesus', description:'1세기 유대 지역의 단정한 옷차림과 과장되지 않은 온화한 표정'},
-  {id:'mary', name:'성모 마리아', role:'mary', description:'푸른 망토와 절제된 베이지 옷차림, 평온하고 자애로운 분위기'},
-  {id:'disciple', name:'제자·사도', role:'disciple', description:'1세기 유대 지역의 소박한 여행자 복장과 경청하는 태도'},
-  {id:'child', name:'아이', role:'child', description:'시대와 장면에 어울리는 소박한 옷차림과 자연스러운 표정'},
-  {id:'mother', name:'어머니', role:'mother', description:'소박한 의복과 따뜻한 보호자의 태도'},
-  {id:'father', name:'아버지', role:'father', description:'소박한 의복과 차분한 보호자의 태도'},
-  {id:'sick', name:'도움이 필요한 사람', role:'sick', description:'존엄을 해치지 않는 단정한 모습'},
-  {id:'crowd', name:'군중', role:'crowd', description:'개별 얼굴을 특정하지 않는 절제된 배경 인물'}
+  {id:'jesus', name:'예수님', role:'jesus', description:'1세기 갈릴래아의 중동계 성인 남성, 햇볕에 자연스럽게 그을린 얼굴과 어깨까지 내려오는 짙은 머리와 짧고 단정한 수염, 맑고 깊이 바라보는 온화한 표정. 흰색 또는 아이보리 속옷 위에 흙빛 겉옷과 숄을 걸치고 가죽 샌들을 신음. 사람을 축복하거나 손을 내밀어 가르치고, 도움이 필요한 이에게 몸을 낮추는 자비로운 행동.'},
+  {id:'mary', name:'성모 마리아', role:'mary', description:'1세기 유대 지역의 중동계 여성, 온화한 눈매와 차분하고 자애로운 표정, 머리카락을 베일로 단정히 가림. 푸른색 또는 청회색 망토와 소박한 베이지색 긴 옷, 가죽 샌들. 기도하며 두 손을 모으거나 아이를 품고 보호하는 절제된 행동, 화려한 장신구 없음.'},
+  {id:'joseph', name:'성 요셉', role:'father', description:'1세기 나자렛의 중동계 성인 남성, 짧은 짙은 머리와 정돈된 짧은 수염, 신중하고 다정한 표정. 갈색 겉옷과 베이지색 튜닉, 목수의 소박한 손과 도구. 가족을 보호하고 조용히 경청하거나 나무를 다듬는 행동.'},
+  {id:'peter', name:'베드로 사도', role:'disciple', description:'갈릴래아 출신의 중동계 장년 남성, 굵은 짧은 회색 수염과 바람에 거친 얼굴, 열정과 후회가 함께 느껴지는 진솔한 표정. 소박한 갈색 튜닉과 짙은 청록색 겉옷, 어부의 밧줄과 그물. 힘 있게 손을 들고 증언하거나 예수님을 바라보며 마음을 다잡는 행동.'},
+  {id:'paul', name:'바오로 사도', role:'disciple', description:'1세기 지중해 지역의 중동계 남성, 높은 이마와 짧은 짙은 머리, 단정한 짧은 수염과 지혜롭고 굳은 표정. 여행에 어울리는 소박한 긴 튜닉과 망토, 가죽 샌들. 두루마리를 들고 가르치거나 먼 길을 걸으며 복음을 전하는 행동.'},
+  {id:'john-baptist', name:'세례자 요한', role:'person', description:'광야에서 지내는 중동계 성인 남성, 햇볕에 그을린 얼굴과 거친 긴 머리와 수염, 회개를 촉구하는 강렬하고 진지한 표정. 낙타털을 엮은 거친 옷과 가죽 허리띠, 맨발 또는 소박한 샌들. 강가에서 손짓으로 설교하거나 세례를 베푸는 행동.'},
+  {id:'disciple', name:'제자·사도', role:'disciple', description:'1세기 유대 지역의 중동계 남성, 인물마다 다른 짧은 머리와 수염, 스승의 말을 집중해 듣는 진지한 표정. 거친 베이지·갈색 튜닉과 겉옷, 가죽 샌들. 예수님을 따라 걷거나 서로 의논하고 조용히 경청하는 행동.'},
+  {id:'child', name:'아이', role:'child', description:'1세기 유대 마을의 어린이, 자연스러운 곱슬머리와 호기심 어린 밝은 표정. 무늬가 거의 없는 소박한 면 소재 튜닉과 작은 샌들. 어른의 손을 잡거나 예수님을 올려다보며 편안하게 다가가는 행동.'},
+  {id:'mother', name:'어머니', role:'mother', description:'1세기 유대 지역의 중동계 여성, 단정히 가린 머리와 지친 가운데도 따뜻한 표정. 흙빛 긴 옷과 머리 베일, 소박한 천 가방. 아이를 보호하거나 아픈 가족을 돌보며 감사의 눈빛을 보내는 행동.'},
+  {id:'father', name:'아버지', role:'father', description:'1세기 유대 마을의 중동계 성인 남성, 짧은 머리와 단정한 수염, 가족을 걱정하는 차분한 표정. 베이지색 튜닉과 갈색 겉옷, 소박한 가죽 샌들. 가족 곁을 지키거나 도움을 청하며 겸손히 고개를 숙이는 행동.'},
+  {id:'sick', name:'도움이 필요한 사람', role:'sick', description:'시대에 맞는 소박한 옷차림의 중동계 인물, 존엄을 해치지 않는 자연스러운 표정과 자세. 낡았지만 깨끗한 겉옷, 과장된 상처나 공포 표현 없음. 도움을 청하거나 치유 후 감사와 안도의 표정을 짓는 행동.'},
+  {id:'samaritan-woman', name:'사마리아 여인', role:'person', description:'1세기 사마리아 지역의 중동계 여성, 햇볕에 자연스럽게 그을린 얼굴과 조심스럽지만 진실을 마주하는 표정. 단정한 긴 옷과 머리 베일, 손에 물동이. 우물가에서 물동이를 내려놓고 대화에 귀 기울이는 행동.'},
+  {id:'crowd', name:'군중', role:'crowd', description:'1세기 유대 지역의 다양한 연령과 체격의 배경 인물들, 개별 유명인 얼굴이 아닌 자연스러운 비식별 얼굴. 흙빛·베이지색 소박한 튜닉과 겉옷, 가죽 샌들. 멀리서 말씀을 듣고 놀라거나 조용히 길을 비켜 주는 절제된 행동.'}
 ];
+DEFAULT_CHARACTER_LIBRARY.forEach((character) => { character.builtIn = true; });
 
 const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, 글자, 자막, 로고, 워터마크, 유명인 얼굴, 성직자 얼굴 모방, 과도한 광선, 판타지 마법, 잔혹한 폭력, 왜곡된 손과 얼굴';
 
@@ -285,6 +291,7 @@ function updateCharacterProfile(card) {
   if (!character || !name) return alert('인물 이름을 입력해 주세요.');
   character.name = name;
   character.description = card.querySelector('[data-character-description]').value.trim();
+  character.builtIn = false;
   persistCharacterLibrary();
   $('#character-profile-message').textContent = `${name} 인물 정보를 업데이트했습니다.`;
 }
@@ -302,7 +309,7 @@ function deleteCharacterProfile(card) {
 function addCharacterProfile() {
   const name = $('#new-character-name').value.trim();
   if (!name) return alert('새 인물의 이름을 입력해 주세요.');
-  const character = {id:`person-${Date.now()}`, name, role:$('#new-character-role').value, description:$('#new-character-description').value.trim()};
+  const character = {id:`person-${Date.now()}`, name, role:$('#new-character-role').value, description:$('#new-character-description').value.trim(), builtIn:false};
   characterLibrary.push(character);
   persistCharacterLibrary();
   const selectedIds = [...getCharacterProfile().selectedIds, character.id];
@@ -333,7 +340,15 @@ function saveCharacterProfile() {
 function restoreCharacterProfile() {
   try {
     const library = JSON.parse(localStorage.getItem(CHARACTER_LIBRARY_KEY) || 'null');
-    characterLibrary = Array.isArray(library) && library.length ? library : DEFAULT_CHARACTER_LIBRARY.map((character) => ({...character}));
+    if (Array.isArray(library) && library.length) {
+      const byId = new Map(library.map((character) => [character.id, character]));
+      characterLibrary = DEFAULT_CHARACTER_LIBRARY.map((defaultCharacter) => {
+        const saved = byId.get(defaultCharacter.id);
+        return saved?.builtIn === false ? saved : {...defaultCharacter, ...(saved || {}), description:defaultCharacter.description, builtIn:true};
+      });
+      library.filter((character) => !DEFAULT_CHARACTER_LIBRARY.some((defaultCharacter) => defaultCharacter.id === character.id)).forEach((character) => characterLibrary.push(character));
+      persistCharacterLibrary();
+    } else characterLibrary = DEFAULT_CHARACTER_LIBRARY.map((character) => ({...character}));
     const profile = JSON.parse(localStorage.getItem(CHARACTER_PROFILE_KEY) || 'null');
     const selectedIds = profile?.selectedIds || characterLibrary.filter((character) => (profile?.roles || []).includes(character.role)).map((character) => character.id);
     renderCharacterDirectory(selectedIds);

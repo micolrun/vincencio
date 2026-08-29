@@ -64,10 +64,19 @@
       <div class="content">
         <section class="panel" id="input-panel">
           <div class="panel-head">
-            <div><small>NEW PROJECT</small><h2>새 영상 설계</h2></div>
+            <div><small>NEW PROJECT</small><h2>새 영상 설계</h2><p class="panel-intro">아래 순서대로 입력하면 버튼이 자동으로 활성화됩니다.</p></div>
             <span class="badge" id="mode-badge">브라우저 모드</span>
           </div>
 
+          <div class="completion" id="completion" aria-live="polite">
+            <div class="completion-head"><strong>제작 준비</strong><span id="completion-count">0 / 4 완료</span></div>
+            <div class="progress"><i id="progress-bar"></i></div>
+            <div class="checklist">
+              <span id="check-audio">① 음성 파일</span><span id="check-transcript">② 녹취문</span><span id="check-source">③ 출처</span><span id="check-rights">④ 인용 확인</span>
+            </div>
+          </div>
+
+          <div class="input-step"><b>1</b><div><strong>녹음 파일을 올려주세요</strong><span>먼저 음성 길이를 확인합니다.</span></div><em>필수</em></div>
           <label class="dropzone" id="dropzone">
             <input type="file" id="audio-file" accept="audio/*,video/mp4">
             <span class="record-mark">●</span>
@@ -77,6 +86,7 @@
           </label>
           <audio id="audio-player" controls class="hidden"></audio>
 
+          <div class="input-step"><b>2</b><div><strong>영상 정보를 적어주세요</strong><span>제목은 비워두면 원고에서 자동으로 만듭니다.</span></div></div>
           <div class="form-grid">
             <div class="field">
               <label for="title">영상 제목 초안</label>
@@ -88,6 +98,7 @@
             </div>
           </div>
 
+          <div class="input-step"><b>3</b><div><strong>녹취문을 붙여 넣어주세요</strong><span>현재 웹 버전은 음성을 자동으로 받아쓰지 않습니다.</span></div><em>필수</em></div>
           <div class="field">
             <label for="transcript">녹음 원고 또는 전사문</label>
             <textarea id="transcript" rows="10" placeholder="녹음한 내용을 붙여 넣으세요. 성경 인용은 승인된 원문과 직접 대조해야 합니다."></textarea>
@@ -95,7 +106,11 @@
           </div>
 
           <label class="consent"><input id="copyright-check" type="checkbox"> 성경·전례문 인용 범위와 출처를 확인했습니다.</label>
-          <button class="primary" id="generate">5초 영상 설계 만들기 <span>→</span></button>
+          <div class="create-bar">
+            <p id="next-action">먼저 음성 파일을 선택해 주세요.</p>
+            <button class="primary" id="generate" disabled>5초 장면 설계 만들기 <span>→</span></button>
+          </div>
+          <p class="output-guide"><b>생성 결과:</b> 실제 MP4 영상이 아니라 5초 장면표, 자막, 이미지 프롬프트가 만들어집니다.</p>
         </section>
 
         <section class="panel hidden" id="result-panel">

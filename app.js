@@ -7,7 +7,10 @@ const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, �
 
 $('#transcript').addEventListener('input', (event) => {
   $('#char-count').textContent = `${event.target.value.length.toLocaleString()}자`;
+  updateProgress();
 });
+$('#source').addEventListener('input', updateProgress);
+$('#copyright-check').addEventListener('change', updateProgress);
 
 $('#audio-file').addEventListener('change', (event) => loadAudio(event.target.files[0]));
 ['dragenter','dragover'].forEach((name) => $('#dropzone').addEventListener(name, (event) => {
@@ -32,7 +35,28 @@ function loadAudio(file) {
   player.onloadedmetadata = () => {
     audioDuration = Number.isFinite(player.duration) ? player.duration : 0;
     $('#file-name').textContent = `${file.name} · ${formatTime(audioDuration)}`;
+    updateProgress();
   };
+}
+
+function updateProgress() {
+  const items = [
+    {ready: audioDuration > 0, id: '#check-audio'},
+    {ready: $('#transcript').value.trim().length > 0, id: '#check-transcript'},
+    {ready: $('#source').value.trim().length > 0, id: '#check-source'},
+    {ready: $('#copyright-check').checked, id: '#check-rights'}
+  ];
+  items.forEach(({ready,id}) => $(id).classList.toggle('done', ready));
+  const complete = items.filter(({ready}) => ready).length;
+  $('#completion-count').textContent = `${complete} / 4 완료`;
+  $('#progress-bar').style.width = `${complete * 25}%`;
+  $('#generate').disabled = complete !== 4;
+  const next = !items[0].ready ? '먼저 음성 파일을 선택해 주세요.'
+    : !items[1].ready ? '다음으로 녹취문을 붙여 넣어 주세요.'
+    : !items[2].ready ? '성경 위치와 승인된 출처를 입력해 주세요.'
+    : !items[3].ready ? '마지막으로 인용 범위를 확인해 주세요.'
+    : '준비가 끝났습니다. 장면 설계를 만들어 보세요.';
+  $('#next-action').textContent = next;
 }
 
 $('#generate').addEventListener('click', () => {
@@ -142,3 +166,5 @@ function formatTime(value){const seconds=Math.max(0,Math.floor(value||0));return
 function srtTime(value){const ms=Math.round(value*1000);const h=Math.floor(ms/3600000);const m=Math.floor(ms%3600000/60000);const s=Math.floor(ms%60000/1000);return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms%1000).padStart(3,'0')}`;}
 function safeName(value){return value.replace(/[\\/:*?"<>|]/g,'_').slice(0,70)||'vincentio-project';}
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}
+
+updateProgress();

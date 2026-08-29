@@ -12,6 +12,7 @@ let transcriptionSequence = 0;
 let draftSaveTimer = null;
 let scriptureSuggestions = [];
 let characterLibrary = [];
+let cloudSyncTimer = null;
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
 const CHARACTER_PROFILE_KEY = 'vincentio-character-profile-v1';
 const CHARACTER_LIBRARY_KEY = 'vincentio-character-library-v1';
@@ -268,6 +269,7 @@ function getCharacterProfile() {
 
 function persistCharacterLibrary() {
   try { localStorage.setItem(CHARACTER_LIBRARY_KEY, JSON.stringify(characterLibrary)); } catch { /* Keep editing available when storage is blocked. */ }
+  queueCloudSync();
 }
 
 function renderCharacterDirectory(selectedIds = getCharacterProfile().selectedIds) {
@@ -321,6 +323,7 @@ function saveCharacterProfile() {
   const summary = profile.characters.length ? `${profile.characters.map((character) => character.name).join(' · ')} 설정을 저장했습니다.` : '선택한 인물 없이 공통 묘사만 저장했습니다.';
   $('#character-profile-message').textContent = summary;
   try { localStorage.setItem(CHARACTER_PROFILE_KEY, JSON.stringify(profile)); } catch { /* Keep editing available when storage is blocked. */ }
+  queueCloudSync();
   if (currentProject) {
     currentProject.characterProfile = profile;
     persistDraft('등장인물 설정을 저장했습니다.');
@@ -359,6 +362,72 @@ function updateProgress() {
     : '준비가 끝났습니다. 장면 설계를 만들어 보세요.';
   $('#next-action').textContent = next;
 }
+
+function readLocalDraft() {
+  try { return JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || 'null'); } catch { return null; }
+}
+
+function readLocalCharacterProfile() {
+  try { return JSON.parse(localStorage.getItem(CHARACTER_PROFILE_KEY) || 'null'); } catch { return null; }
+}
+
+function setCloudSyncMessage(message) {
+  const status = $('#save-state');
+  if (status) status.textContent = message;
+}
+
+function queueCloudSync(snapshot = null) {
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(async () => {
+    if (!window.vincentioCloud?.saveStudioState) return;
+    const localSnapshot = snapshot || readLocalDraft();
+    if (!localSnapshot && !characterLibrary.length) return;
+    try {
+      setCloudSyncMessage('Firebase에 안전하게 동기화하는 중입니다…');
+      await window.vincentioCloud.saveStudioState({snapshot:localSnapshot, characterLibrary, characterProfile:readLocalCharacterProfile()});
+      setCloudSyncMessage(`이 기기와 Firebase에 저장되었습니다. ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`);
+    } catch (error) {
+      console.warn('Firebase sync failed', error);
+      setCloudSyncMessage('이 기기에는 저장되었습니다. Firebase 동기화는 다음 로그인 때 다시 시도합니다.');
+    }
+  }, 550);
+}
+
+async function restoreCloudState() {
+  if (!window.vincentioCloud?.loadStudioState) return;
+  try {
+    const remote = await window.vincentioCloud.loadStudioState();
+    if (!remote) {
+      const local = readLocalDraft();
+      if (local || characterLibrary.length) queueCloudSync(local);
+      return;
+    }
+    if (Array.isArray(remote.characterLibrary) && remote.characterLibrary.length) {
+      characterLibrary = remote.characterLibrary;
+      localStorage.setItem(CHARACTER_LIBRARY_KEY, JSON.stringify(characterLibrary));
+      renderCharacterDirectory();
+    }
+    if (remote.characterProfile) {
+      localStorage.setItem(CHARACTER_PROFILE_KEY, JSON.stringify(remote.characterProfile));
+      const selectedIds = remote.characterProfile.selectedIds || characterLibrary.filter((character) => (remote.characterProfile.roles || []).includes(character.role)).map((character) => character.id);
+      renderCharacterDirectory(selectedIds);
+      $('#character-notes').value = remote.characterProfile.notes || '';
+    }
+    const local = readLocalDraft();
+    const remoteDraft = remote.snapshot;
+    if (remoteDraft && (!local || new Date(remoteDraft.savedAt || 0) > new Date(local.savedAt || 0))) {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(remoteDraft));
+      showDraftRestore();
+      setCloudSyncMessage('Firebase에 저장된 최근 프로젝트를 불러왔습니다.');
+    } else if (local) {
+      queueCloudSync(local);
+    }
+  } catch (error) {
+    console.warn('Firebase restore failed', error);
+  }
+}
+
+document.addEventListener('vincentio-cloud-ready', restoreCloudState);
 
 $('#generate').addEventListener('click', async () => {
   const transcript = $('#transcript').value.trim();
@@ -691,6 +760,7 @@ function persistDraft(message = '이 기기에 저장되었습니다.') {
     };
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(snapshot));
     $('#save-state').textContent = `${message} ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+    queueCloudSync(snapshot);
   } catch (error) {
     console.warn('Draft save failed', error);
     $('#save-state').textContent = '이 브라우저에서는 자동 저장을 사용할 수 없습니다.';

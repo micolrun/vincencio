@@ -16,6 +16,12 @@
 
 GitHub Pages는 서버 프로그램을 실행하거나 비밀 API 키를 안전하게 보관할 수 없으므로 AI 전사·이미지 생성·Remotion MP4 렌더링은 별도 HTTPS 백엔드가 필요합니다. 구조 결정은 [ADR-0002](docs/adr/0002-github-pages-browser-app.md)를 참고하세요.
 
+## Firebase 프로젝트 동기화
+
+Google 로그인 후 Cloud Firestore에 인물 보관함, 입력값, 장면표, 자막, 검토 기록과 영상 설정을 계정별로 동기화합니다. 음성 원본과 렌더링 영상은 자동 업로드하지 않고 해당 기기에 둡니다.
+
+Firebase Console에서 Cloud Firestore 데이터베이스를 만든 뒤 `firestore.rules` 내용을 Rules 탭에 배포하세요. 이 규칙은 로그인한 사용자가 자기 UID의 데이터만 읽고 쓰도록 제한합니다. 자세한 결정은 [ADR-0003](docs/adr/0003-firebase-studio-state.md)을 참고하세요.
+
 ## 현재 구현된 기능
 
 - WAV, MP3, M4A, AAC, OGG, WebM, MP4 업로드

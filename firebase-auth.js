@@ -1,5 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
+import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 // Firebase web configuration contains public app identifiers, not a server secret.
 const firebaseConfig = {
@@ -13,7 +14,9 @@ const firebaseConfig = {
 
 // Keep this empty to allow any verified Google account. Add lowercase emails here for owner-only access.
 const ALLOWED_EMAILS = [];
-const auth = getAuth(initializeApp(firebaseConfig));
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({prompt: 'select_account'});
 
@@ -23,6 +26,25 @@ const status = document.querySelector('#auth-status');
 const loginButton = document.querySelector('#google-login');
 const signOutButton = document.querySelector('#sign-out');
 const prayerConfirm = document.querySelector('#prayer-confirm');
+
+function studioStateRef() {
+  if (!auth.currentUser) throw new Error('로그인이 필요합니다.');
+  return doc(db, 'users', auth.currentUser.uid, 'studio', 'state');
+}
+
+function serializable(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+window.vincentioCloud = {
+  async saveStudioState(state) {
+    await setDoc(studioStateRef(), {payload: serializable(state), updatedAt: serverTimestamp()}, {merge:true});
+  },
+  async loadStudioState() {
+    const snapshot = await getDoc(studioStateRef());
+    return snapshot.exists() ? snapshot.data().payload || null : null;
+  }
+};
 
 function isAllowedGoogleUser(user) {
   const isGoogleUser = user?.providerData?.some((entry) => entry.providerId === 'google.com');
@@ -45,6 +67,7 @@ function showGate(message) {
 onAuthStateChanged(auth, (user) => {
   if (isAllowedGoogleUser(user)) {
     showStudio(user);
+    document.dispatchEvent(new CustomEvent('vincentio-cloud-ready', {detail:{uid:user.uid, email:user.email}}));
     return;
   }
   if (user) {

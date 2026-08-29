@@ -10,7 +10,9 @@
 
 ## GitHub Pages 앱
 
-설치 없는 브라우저 버전은 `https://micolrun.github.io/vincencio/`에서 실행됩니다. `site/`의 정적 앱을 `.github/workflows/pages.yml`이 자동 배포합니다. Pages 버전은 음성을 외부로 전송하지 않고 파일 길이를 읽어 5초 장면표, 자막, 이미지 프롬프트, 썸네일 콘셉트와 해시태그를 만들며 SRT와 프로젝트 JSON을 내려받습니다.
+공개 페이지의 메인 화면은 저장소 최상단의 `index.html`에서 직접 편집할 수 있습니다.
+
+설치 없는 브라우저 버전은 `https://micolrun.github.io/vincencio/`에서 실행됩니다. 최상단의 `index.html`과 `site/`의 정적 파일을 `.github/workflows/pages.yml`이 자동 배포합니다. Pages 버전은 음성을 외부로 전송하지 않고 파일 길이를 읽어 5초 장면표, 자막, 이미지 프롬프트, 썸네일 콘셉트와 해시태그를 만들며 SRT와 프로젝트 JSON을 내려받습니다.
 
 GitHub Pages는 서버 프로그램을 실행하거나 비밀 API 키를 안전하게 보관할 수 없으므로 AI 전사·이미지 생성·Remotion MP4 렌더링은 별도 HTTPS 백엔드가 필요합니다. 구조 결정은 [ADR-0002](docs/adr/0002-github-pages-browser-app.md)를 참고하세요.
 

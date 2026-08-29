@@ -2,6 +2,9 @@ const $ = (selector) => document.querySelector(selector);
 let audioDuration = 0;
 let audioUrl = '';
 let currentProject = null;
+let renderAudioContext = null;
+let renderAudioSource = null;
+let renderAudioDestination = null;
 
 const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, 글자, 자막, 로고, 워터마크, 유명인 얼굴, 성직자 얼굴 모방, 과도한 광선, 판타지 마법, 잔혹한 폭력, 왜곡된 손과 얼굴';
 
@@ -156,6 +159,159 @@ $('#download-srt').addEventListener('click', () => {
   const srt = currentProject.scenes.map((scene,index) => `${index+1}\n${srtTime(scene.start)} --> ${srtTime(scene.end)}\n${scene.narration}\n`).join('\n');
   download(`${safeName(currentProject.title)}.srt`, srt, 'text/plain;charset=utf-8');
 });
+
+$('#render-video').addEventListener('click', renderBrowserVideo);
+
+async function renderBrowserVideo() {
+  if (!currentProject || !audioUrl) return alert('음성과 장면 설계를 먼저 만들어 주세요.');
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    return alert('이 브라우저는 영상 제작을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 열어 주세요.');
+  }
+  syncEdits();
+  const button = $('#render-video');
+  const status = $('#render-status');
+  button.disabled = true;
+  status.classList.remove('hidden');
+  setRenderProgress(0, '영상 화면과 음성을 준비하고 있습니다…');
+
+  try {
+    await document.fonts.ready;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const context = canvas.getContext('2d');
+    const visualStream = canvas.captureStream(30);
+    const player = $('#audio-player');
+
+    if (!renderAudioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      renderAudioContext = new AudioContextClass();
+      renderAudioSource = renderAudioContext.createMediaElementSource(player);
+      renderAudioDestination = renderAudioContext.createMediaStreamDestination();
+      renderAudioSource.connect(renderAudioDestination);
+    }
+    await renderAudioContext.resume();
+    const stream = new MediaStream([
+      ...visualStream.getVideoTracks(),
+      ...renderAudioDestination.stream.getAudioTracks()
+    ]);
+    const mimeType = chooseVideoMime();
+    const recorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: 10_000_000});
+    const chunks = [];
+    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+    const finished = new Promise((resolve, reject) => {
+      recorder.onerror = () => reject(new Error('브라우저 영상 인코딩 중 오류가 발생했습니다.'));
+      recorder.onstop = resolve;
+    });
+
+    player.pause();
+    player.currentTime = 0;
+    drawVideoFrame(context, canvas, currentProject, 0);
+    recorder.start(1000);
+    await player.play();
+
+    await new Promise((resolve) => {
+      let animationId;
+      const draw = () => {
+        const time = Math.min(player.currentTime, currentProject.duration);
+        drawVideoFrame(context, canvas, currentProject, time);
+        const percent = Math.min(99, Math.round((time / currentProject.duration) * 100));
+        setRenderProgress(percent, `영상을 만들고 있습니다 · ${formatTime(time)} / ${formatTime(currentProject.duration)}`);
+        if (player.ended || time >= currentProject.duration) return resolve();
+        animationId = requestAnimationFrame(draw);
+      };
+      player.addEventListener('ended', () => { cancelAnimationFrame(animationId); resolve(); }, {once:true});
+      draw();
+    });
+
+    if (recorder.state !== 'inactive') recorder.stop();
+    await finished;
+    stream.getTracks().forEach((track) => track.stop());
+    const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, {type:mimeType});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName(currentProject.title)}.${extension}`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setRenderProgress(100, `완료되었습니다 · ${extension.toUpperCase()} 영상이 저장되었습니다.`);
+  } catch (error) {
+    console.error(error);
+    setRenderProgress(0, '영상 제작에 실패했습니다.');
+    alert(`${error.message}\n최신 Chrome 또는 Edge에서 다시 시도해 주세요.`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function chooseVideoMime() {
+  const types = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function setRenderProgress(percent, message) {
+  $('#render-progress').style.width = `${percent}%`;
+  $('#render-percent').textContent = `${percent}%`;
+  $('#render-message').textContent = message;
+}
+
+function drawVideoFrame(ctx, canvas, project, time) {
+  const scene = project.scenes.find((item) => time >= item.start && time < item.end) || project.scenes.at(-1);
+  const local = Math.max(0, time - scene.start);
+  const palettes = [
+    ['#102f28','#5f7769','#d0a45b'], ['#182c38','#677d80','#d8b36b'],
+    ['#352f29','#8a755b','#e2c489'], ['#1a3534','#527775','#c8a35d'],
+    ['#292d3a','#747387','#d9b875']
+  ];
+  const colors = palettes[(scene.index - 1) % palettes.length];
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, colors[0]); gradient.addColorStop(1, colors[1]);
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const glow = ctx.createRadialGradient(canvas.width * .72, canvas.height * .25, 0, canvas.width * .72, canvas.height * .25, 560);
+  glow.addColorStop(0, `${colors[2]}99`); glow.addColorStop(1, `${colors[2]}00`);
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(canvas.width * .73, canvas.height * .37);
+  ctx.rotate(local * .025);
+  for (let ring = 0; ring < 4; ring += 1) {
+    ctx.beginPath(); ctx.arc(0, 0, 100 + ring * 82, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(244,224,181,${.20 - ring * .035})`; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.fillStyle = '#f3dca8'; ctx.font = '72px Georgia'; ctx.textAlign = 'center'; ctx.fillText('✦', 0, 24);
+  ctx.restore();
+
+  ctx.fillStyle = 'rgba(255,253,247,.80)'; ctx.font = '600 28px "Malgun Gothic", sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('VINCENTIO · 말씀 영상 스튜디오', 120, 105);
+  ctx.fillStyle = colors[2]; ctx.fillRect(120, 146, 92, 4);
+  ctx.fillStyle = '#fffdf7'; ctx.font = '700 58px "Malgun Gothic", sans-serif';
+  drawWrappedText(ctx, scene.narration, 120, 690, 1100, 82, 4);
+  ctx.fillStyle = 'rgba(255,255,255,.70)'; ctx.font = '28px "Malgun Gothic", sans-serif';
+  ctx.fillText(project.source, 120, 950);
+  ctx.textAlign = 'right'; ctx.fillText(`${scene.index} / ${project.scenes.length}`, 1800, 950);
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(120, 995, 1680, 5);
+  ctx.fillStyle = colors[2]; ctx.fillRect(120, 995, 1680 * Math.min(1, time / project.duration), 5);
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  const words = String(text || '').split(/\s+/);
+  const lines = [];
+  let line = '';
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+    else line = test;
+  });
+  if (line) lines.push(line);
+  lines.slice(0, maxLines).forEach((value, index) => ctx.fillText(value, x, y + index * lineHeight));
+}
 
 function download(name,content,type) {
   const url = URL.createObjectURL(new Blob([content],{type}));

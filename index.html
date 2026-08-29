@@ -145,6 +145,12 @@
             <button class="ghost" id="edit-again">입력 수정</button>
             <button class="ghost" id="download-srt">SRT 자막</button>
             <button class="primary" id="download-json">프로젝트 저장</button>
+            <button class="primary video-button" id="render-video">영상 만들기 <span>▶</span></button>
+          </div>
+          <div class="render-status hidden" id="render-status" aria-live="polite">
+            <div><strong id="render-message">영상을 준비하고 있습니다…</strong><span id="render-percent">0%</span></div>
+            <div class="render-track"><i id="render-progress"></i></div>
+            <small>음성 길이만큼 실시간으로 제작됩니다. 이 화면을 닫지 마세요.</small>
           </div>
         </section>
       </div>

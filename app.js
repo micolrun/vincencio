@@ -178,11 +178,14 @@ async function buildProject(transcript) {
       narration = words.slice(wordCursor, Math.max(wordCursor, targetCursor)).join(' ');
       wordCursor = targetCursor;
     }
+    const characters = chooseSceneCharacters(narration);
     scenes.push({
       index: index + 1, start, end, narration,
-      prompt: makePrompt(narration, index),
+      prompt: makePrompt(narration, index, characters),
       negativePrompt: commonNegative,
       visual: chooseSceneVisual(narration, index),
+      characters,
+      setting: chooseSceneSetting(narration),
       status: 'review_required'
     });
   }
@@ -263,9 +266,41 @@ function chooseSceneVisual(text, index) {
   return ['light','bible','path','water','seed'][index % 5];
 }
 
-function makePrompt(text, index) {
+function makePrompt(text, index, characters = []) {
   const symbols = ['고요한 길과 따뜻한 빛','펼쳐진 성경과 창가의 자연광','흙 위의 작은 씨앗과 새벽빛','잔잔한 물결과 멀리 열린 길','빈 성당 의자와 부드러운 햇살'];
-  return `가톨릭 묵상 영상용 절제된 성화풍 수채화, “${text}”의 의미를 ${symbols[index % symbols.length]}으로 상징적으로 표현, 원문에 없는 인물이나 사건 추가 금지, 베이지·짙은 청색·은은한 금색, 경건하고 고요한 분위기, 하단 자막 여백, 16:9, 글자 없음`;
+  const people = characters.length ? `원고에 언급된 인물만 표현: ${characters.map(characterLabel).join(', ')}, 실제 유명인 얼굴 모방 없이 존중하는 비식별 성화풍 인물` : '원고에 인물이 명시되지 않아 사람은 추가하지 않음';
+  return `가톨릭 묵상 영상용 절제된 성화풍 수채화, “${text}”의 의미를 ${symbols[index % symbols.length]}으로 상징적으로 표현, ${people}, 원문에 없는 인물이나 사건 추가 금지, 베이지·짙은 청색·은은한 금색, 경건하고 고요한 분위기, 하단 자막 여백, 16:9, 글자 없음`;
+}
+
+function chooseSceneCharacters(text) {
+  const roles = [];
+  const add = (role) => { if (!roles.includes(role) && roles.length < 4) roles.push(role); };
+  if (/예수|그리스도/.test(text)) add('jesus');
+  if (/성모|마리아/.test(text)) add('mary');
+  if (/제자|사도|베드로|바오로|요한/.test(text)) add('disciple');
+  if (/신부|사제|교황|주교/.test(text)) add('priest');
+  if (/어린이|아이|아기/.test(text)) add('child');
+  if (/어머니|엄마/.test(text)) add('mother');
+  if (/아버지|아빠/.test(text)) add('father');
+  if (/가족/.test(text)) ['mother','father','child'].forEach(add);
+  if (/병자|환자|아픈 사람/.test(text)) add('sick');
+  if (/군중|사람들|이웃|백성/.test(text)) add('crowd');
+  if (!roles.length && /기도|묵상|감사|찬미/.test(text)) add('praying');
+  if (!roles.length && /사람|여인|여자|남자/.test(text)) add('person');
+  return roles;
+}
+
+function chooseSceneSetting(text) {
+  if (/성당|성전|교회/.test(text)) return 'church';
+  if (/바다|강|물|호수/.test(text)) return 'waterside';
+  if (/산|언덕/.test(text)) return 'mountain';
+  if (/길|여정|걸어/.test(text)) return 'road';
+  if (/집|가정|가족/.test(text)) return 'home';
+  return 'sacred-light';
+}
+
+function characterLabel(role) {
+  return ({jesus:'예수님',mary:'성모 마리아',disciple:'제자·사도',priest:'성직자',child:'아이',mother:'어머니',father:'아버지',sick:'도움이 필요한 사람',crowd:'군중',praying:'기도하는 사람',person:'사람'})[role] || '사람';
 }
 
 function inferTitle(text) {
@@ -293,7 +328,7 @@ function renderProject(project) {
   $('#scene-list').innerHTML = project.scenes.map((scene,index) => `
     <article class="scene" data-index="${index}">
       <time>${formatTime(scene.start)}–${formatTime(scene.end)}</time>
-      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><span class="visual-tag">자동 일러스트 · ${visualLabel(scene.visual)}</span><textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></div>
+      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span></div><textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></div>
       <div><select aria-label="${scene.index}번 검수 상태"><option value="review_required">확인 필요</option><option value="verified">원문 확인됨</option></select></div>
     </article>`).join('');
   window.scrollTo({top: $('#result-panel').offsetTop - 85,behavior:'smooth'});
@@ -450,6 +485,7 @@ function drawVideoFrame(ctx, canvas, project, time) {
   ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
+  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local);
 
   ctx.fillStyle = 'rgba(255,253,247,.80)'; ctx.font = '600 28px "Malgun Gothic", sans-serif'; ctx.textAlign = 'left';
   ctx.fillText('VINCENTIO · 말씀 영상 스튜디오', 120, 105);
@@ -501,6 +537,58 @@ function drawSceneIllustration(ctx, canvas, visual, colors, local) {
     ctx.globalAlpha=.24;for(let ring=0;ring<4;ring+=1){ctx.beginPath();ctx.arc(0,0,90+ring*75+Math.sin(local)*5,0,Math.PI*2);ctx.stroke();}
     ctx.globalAlpha=1;ctx.font='110px Georgia';ctx.textAlign='center';ctx.fillText('✦',0,38);
   }
+  ctx.restore();
+}
+
+function drawCharacterGroup(ctx, canvas, roles, colors, local) {
+  if (!roles.length) return;
+  const expanded = [];
+  roles.forEach((role) => {
+    if (role === 'crowd') expanded.push('person','person','person');
+    else expanded.push(role);
+  });
+  const people = expanded.slice(0,4);
+  const spacing = people.length === 1 ? 0 : Math.min(215, 650 / (people.length - 1));
+  const startX = canvas.width * .75 - spacing * (people.length - 1) / 2;
+  ctx.save();
+  ctx.globalAlpha = .22;
+  ctx.fillStyle = '#071e19';
+  ctx.beginPath();ctx.ellipse(canvas.width*.75,820,390,55,0,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  people.forEach((role,index) => drawPerson(ctx,startX+index*spacing,800,role,colors,local,index));
+}
+
+function drawPerson(ctx, x, groundY, role, colors, local, index) {
+  const isChild = role === 'child';
+  const scale = isChild ? .68 : role === 'sick' ? .82 : 1;
+  const bob = Math.sin(local*1.2+index)*3;
+  const palettes = {
+    jesus:['#f2ead7','#a34f3c','#5c3c2f'], mary:['#355f82','#ede6d2','#46392f'],
+    disciple:['#9b7653','#566c59','#43362e'], priest:['#252b2a','#f3efe5','#35302d'],
+    child:['#c78c5c','#5f7d69','#4b342a'], mother:['#8a5863','#d3ae7c','#49352e'],
+    father:['#65725d','#9a724f','#44332c'], sick:['#837464','#b49a75','#51433a'],
+    praying:['#6d7083','#b89567','#44332d'], person:['#667b70','#b48a63','#42342d']
+  };
+  const palette = palettes[role] || palettes.person;
+  ctx.save();ctx.translate(x,groundY+bob);ctx.scale(scale,scale);
+  if (role === 'jesus' || role === 'mary') {
+    ctx.strokeStyle='rgba(244,214,145,.76)';ctx.lineWidth=8;ctx.beginPath();ctx.arc(0,-310,78,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.fillStyle='rgba(232,190,151,.98)';ctx.beginPath();ctx.arc(0,-300,48,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=palette[2];
+  if (role === 'mary') {ctx.beginPath();ctx.moveTo(-68,-308);ctx.quadraticCurveTo(0,-400,68,-308);ctx.lineTo(45,-220);ctx.lineTo(-45,-220);ctx.closePath();ctx.fill();}
+  else {ctx.beginPath();ctx.arc(0,-318,50,Math.PI,Math.PI*2);ctx.lineTo(50,-285);ctx.quadraticCurveTo(65,-235,38,-220);ctx.lineTo(-38,-220);ctx.quadraticCurveTo(-65,-235,-50,-285);ctx.closePath();ctx.fill();}
+  ctx.fillStyle=palette[0];ctx.beginPath();ctx.moveTo(-58,-240);ctx.quadraticCurveTo(-112,-80,-120,0);ctx.lineTo(120,0);ctx.quadraticCurveTo(110,-105,58,-240);ctx.closePath();ctx.fill();
+  ctx.fillStyle=palette[1];ctx.beginPath();ctx.moveTo(8,-235);ctx.quadraticCurveTo(70,-90,65,0);ctx.lineTo(122,0);ctx.quadraticCurveTo(110,-120,55,-240);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(232,190,151,.98)';ctx.lineWidth=28;ctx.lineCap='round';
+  ctx.beginPath();
+  if (role === 'praying' || role === 'priest' || role === 'mary') {ctx.moveTo(-48,-205);ctx.lineTo(-12,-120);ctx.lineTo(0,-150);ctx.moveTo(48,-205);ctx.lineTo(12,-120);ctx.lineTo(0,-150);}
+  else if (role === 'jesus') {ctx.moveTo(-48,-205);ctx.lineTo(-128,-140);ctx.moveTo(48,-205);ctx.lineTo(128,-140);}
+  else if (role === 'sick') {ctx.moveTo(-48,-205);ctx.lineTo(-90,-80);ctx.moveTo(48,-205);ctx.lineTo(90,-80);}
+  else {ctx.moveTo(-48,-205);ctx.lineTo(-72,-95);ctx.moveTo(48,-205);ctx.lineTo(72,-95);}
+  ctx.stroke();
+  if (role === 'priest') {ctx.fillStyle='#fff';ctx.fillRect(-20,-244,40,16);}
+  ctx.fillStyle='rgba(244,224,181,.32)';ctx.beginPath();ctx.ellipse(0,8,135,22,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
 

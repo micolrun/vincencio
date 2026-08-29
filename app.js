@@ -279,7 +279,7 @@ function persistCharacterLibrary() {
 }
 
 function renderCharacterDirectory(selectedIds = getCharacterProfile().selectedIds) {
-  $('#character-directory').innerHTML = characterLibrary.map((character) => `<article class="character-card" data-character-id="${escapeHtml(character.id)}"><label><input type="checkbox" data-character-select value="${escapeHtml(character.id)}" ${selectedIds.includes(character.id) ? 'checked' : ''}> 사용</label><input data-character-name value="${escapeHtml(character.name)}" aria-label="인물 이름"><input data-character-description value="${escapeHtml(character.description || '')}" aria-label="인물 묘사"><button class="ghost save-character" type="button">수정</button><button class="ghost delete-character" type="button">삭제</button></article>`).join('');
+  $('#character-directory').innerHTML = characterLibrary.map((character) => `<article class="character-card" data-character-id="${escapeHtml(character.id)}"><label><input type="checkbox" data-character-select value="${escapeHtml(character.id)}" ${selectedIds.includes(character.id) ? 'checked' : ''}> 사용</label><input data-character-name value="${escapeHtml(character.name)}" aria-label="인물 이름"><input data-character-description maxlength="200" value="${escapeHtml(character.description || '')}" aria-label="인물 묘사"><button class="ghost save-character" type="button">수정</button><button class="ghost delete-character" type="button">삭제</button></article>`).join('');
   document.querySelectorAll('.save-character').forEach((button) => button.addEventListener('click', () => updateCharacterProfile(button.closest('.character-card'))));
   document.querySelectorAll('.delete-character').forEach((button) => button.addEventListener('click', () => deleteCharacterProfile(button.closest('.character-card'))));
 }
@@ -290,7 +290,7 @@ function updateCharacterProfile(card) {
   const name = card.querySelector('[data-character-name]').value.trim();
   if (!character || !name) return alert('인물 이름을 입력해 주세요.');
   character.name = name;
-  character.description = card.querySelector('[data-character-description]').value.trim();
+  character.description = card.querySelector('[data-character-description]').value.trim().slice(0, 200);
   character.builtIn = false;
   persistCharacterLibrary();
   $('#character-profile-message').textContent = `${name} 인물 정보를 업데이트했습니다.`;
@@ -309,7 +309,9 @@ function deleteCharacterProfile(card) {
 function addCharacterProfile() {
   const name = $('#new-character-name').value.trim();
   if (!name) return alert('새 인물의 이름을 입력해 주세요.');
-  const character = {id:`person-${Date.now()}`, name, role:$('#new-character-role').value, description:$('#new-character-description').value.trim(), builtIn:false};
+  const role = $('#new-character-role').value;
+  const enteredDescription = $('#new-character-description').value.trim();
+  const character = {id:`person-${Date.now()}`, name, role, description:(enteredDescription || makeCustomCharacterDescription(name, role)).slice(0, 200), builtIn:false};
   characterLibrary.push(character);
   persistCharacterLibrary();
   const selectedIds = [...getCharacterProfile().selectedIds, character.id];
@@ -317,6 +319,12 @@ function addCharacterProfile() {
   $('#new-character-name').value = '';
   $('#new-character-description').value = '';
   $('#character-profile-message').textContent = `${name} 인물을 추가했습니다. 이번 영상에도 선택되었습니다.`;
+}
+
+function makeCustomCharacterDescription(name, role) {
+  const setting = '성경 시대의 절제된 복장과 자연스러운 표정, 실제 인물이나 유명인을 닮지 않은 비식별 얼굴';
+  const action = ({disciple:'말씀을 경청하거나 조용히 따르는 모습',mother:'가족을 돌보며 따뜻하게 바라보는 모습',father:'가족 곁을 지키며 차분히 돕는 모습',child:'호기심 있게 주변을 바라보며 다가가는 모습',sick:'존엄을 지키며 도움을 받는 모습',crowd:'배경에서 말씀을 듣고 반응하는 절제된 모습'})[role] || '장면의 흐름에 맞게 경청하고 행동하는 모습';
+  return `${name}은(는) ${setting}. ${action}. 과장된 표정·현대 소품·불필요한 사건은 넣지 않음.`;
 }
 
 function toggleCharacterEditor() {

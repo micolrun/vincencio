@@ -163,15 +163,20 @@ $('#download-srt').addEventListener('click', () => {
 $('#render-video').addEventListener('click', renderBrowserVideo);
 
 async function renderBrowserVideo() {
-  if (!currentProject || !audioUrl) return alert('음성과 장면 설계를 먼저 만들어 주세요.');
+  const button = $('#render-video');
+  const status = $('#render-status');
+  status.classList.remove('hidden');
+  setRenderProgress(0, '영상 만들기 버튼이 정상 작동했습니다. 준비를 시작합니다…');
+  if (!currentProject || !audioUrl) {
+    setRenderProgress(0, '음성과 장면 설계를 먼저 만들어 주세요.');
+    return alert('음성과 장면 설계를 먼저 만들어 주세요.');
+  }
   if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    setRenderProgress(0, '현재 브라우저가 영상 제작을 지원하지 않습니다.');
     return alert('이 브라우저는 영상 제작을 지원하지 않습니다. 최신 Chrome 또는 Edge에서 열어 주세요.');
   }
   syncEdits();
-  const button = $('#render-video');
-  const status = $('#render-status');
   button.disabled = true;
-  status.classList.remove('hidden');
   setRenderProgress(0, '영상 화면과 음성을 준비하고 있습니다…');
 
   try {

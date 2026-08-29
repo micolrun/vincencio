@@ -1,6 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 let audioDuration = 0;
 let audioUrl = '';
+let audioFile = null;
 let currentProject = null;
 let renderAudioContext = null;
 let renderAudioSource = null;
@@ -29,6 +30,7 @@ $('#audio-file').addEventListener('change', (event) => loadAudio(event.target.fi
 
 function loadAudio(file) {
   if (!file) return;
+  audioFile = file;
   if (audioUrl) URL.revokeObjectURL(audioUrl);
   audioUrl = URL.createObjectURL(file);
   const player = $('#audio-player');
@@ -62,31 +64,49 @@ function updateProgress() {
   $('#next-action').textContent = next;
 }
 
-$('#generate').addEventListener('click', () => {
+$('#generate').addEventListener('click', async () => {
   const transcript = $('#transcript').value.trim();
   if (!audioDuration) return alert('먼저 음성 파일을 선택해 주세요.');
   if (!transcript) return alert('녹음 원고 또는 전사문을 입력해 주세요.');
   if (!$('#source').value.trim()) return alert('성경 위치와 승인된 출처를 입력해 주세요.');
   if (!$('#copyright-check').checked) return alert('성경·전례문 인용 범위를 확인해 주세요.');
-  currentProject = buildProject(transcript);
-  renderProject(currentProject);
+  const button = $('#generate');
+  button.disabled = true;
+  button.innerHTML = '목소리 구간 분석 중…';
+  try {
+    currentProject = await buildProject(transcript);
+    renderProject(currentProject);
+  } catch (error) {
+    console.error(error);
+    alert('음성 분석 중 오류가 발생했습니다. 다른 MP3 또는 WAV 파일로 다시 시도해 주세요.');
+  } finally {
+    button.innerHTML = '5초 장면 설계 만들기 <span>→</span>';
+    updateProgress();
+  }
 });
 
-function buildProject(transcript) {
+async function buildProject(transcript) {
   const duration = Math.max(5, audioDuration);
   const sceneTotal = Math.ceil(duration / 5);
   const words = transcript.split(/\s+/).filter(Boolean);
-  const wordsPerScene = Math.max(1, Math.ceil(words.length / sceneTotal));
+  const speechWeights = await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
+  const totalWeight = speechWeights.reduce((sum, value) => sum + value, 0) || sceneTotal;
   const title = $('#title').value.trim() || inferTitle(transcript);
   const scenes = [];
+  let wordCursor = 0;
+  let accumulatedWeight = 0;
   for (let index = 0; index < sceneTotal; index += 1) {
     const start = index * 5;
     const end = Math.min(duration, start + 5);
-    const narration = words.slice(index * wordsPerScene, (index + 1) * wordsPerScene).join(' ') || words.slice(-wordsPerScene).join(' ');
+    accumulatedWeight += speechWeights[index];
+    const targetCursor = index === sceneTotal - 1 ? words.length : Math.round(words.length * accumulatedWeight / totalWeight);
+    const narration = words.slice(wordCursor, Math.max(wordCursor, targetCursor)).join(' ');
+    wordCursor = targetCursor;
     scenes.push({
       index: index + 1, start, end, narration,
       prompt: makePrompt(narration, index),
       negativePrompt: commonNegative,
+      visual: chooseSceneVisual(narration, index),
       status: 'review_required'
     });
   }
@@ -101,6 +121,50 @@ function buildProject(transcript) {
     thumbnailPrompt: `고요한 새벽빛 아래 펼쳐진 성경과 따뜻한 빛, ${title}의 정서를 상징하는 절제된 수채화, 오른쪽 제목 여백, 16:9, 이미지 안 글자 없음`,
     scenes
   };
+}
+
+async function analyzeSpeechWeights(file, sceneTotal) {
+  if (!file) return Array(sceneTotal).fill(1);
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const analysisContext = new AudioContextClass();
+  try {
+    const buffer = await analysisContext.decodeAudioData(await file.arrayBuffer());
+    const samples = buffer.getChannelData(0);
+    const frameSize = Math.max(1, Math.floor(buffer.sampleRate * .05));
+    const frames = [];
+    for (let offset = 0; offset < samples.length; offset += frameSize) {
+      let energy = 0;
+      const limit = Math.min(samples.length, offset + frameSize);
+      for (let index = offset; index < limit; index += 1) energy += samples[index] * samples[index];
+      frames.push(Math.sqrt(energy / Math.max(1, limit - offset)));
+    }
+    const sorted = [...frames].sort((a,b) => a-b);
+    const noise = sorted[Math.floor(sorted.length * .2)] || 0;
+    const voice = sorted[Math.floor(sorted.length * .9)] || .01;
+    const threshold = noise + Math.max(.003, (voice - noise) * .18);
+    const weights = Array(sceneTotal).fill(0);
+    frames.forEach((energy,index) => {
+      if (energy <= threshold) return;
+      const time = index * .05;
+      const sceneIndex = Math.min(sceneTotal - 1, Math.floor(time / 5));
+      weights[sceneIndex] += Math.min(3, energy / Math.max(threshold,.001));
+    });
+    const nonzero = weights.filter(Boolean);
+    const fallback = nonzero.length ? Math.max(1, Math.min(...nonzero) * .12) : 1;
+    return weights.map((value) => value || fallback);
+  } finally {
+    analysisContext.close();
+  }
+}
+
+function chooseSceneVisual(text, index) {
+  if (/성경|말씀|복음|구절/.test(text)) return 'bible';
+  if (/물|바다|강|세례|생명수/.test(text)) return 'water';
+  if (/씨앗|씨|열매|자라|포도/.test(text)) return 'seed';
+  if (/길|걸어|여정|따르|인도/.test(text)) return 'path';
+  if (/기도|감사|촛불|성당/.test(text)) return 'candle';
+  if (/십자가|예수|그리스도|구원/.test(text)) return 'cross';
+  return ['light','bible','path','water','seed'][index % 5];
 }
 
 function makePrompt(text, index) {
@@ -133,7 +197,7 @@ function renderProject(project) {
   $('#scene-list').innerHTML = project.scenes.map((scene,index) => `
     <article class="scene" data-index="${index}">
       <time>${formatTime(scene.start)}–${formatTime(scene.end)}</time>
-      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration)}</p><textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></div>
+      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><span class="visual-tag">자동 일러스트 · ${visualLabel(scene.visual)}</span><textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></div>
       <div><select aria-label="${scene.index}번 검수 상태"><option value="review_required">확인 필요</option><option value="verified">원문 확인됨</option></select></div>
     </article>`).join('');
   window.scrollTo({top: $('#result-panel').offsetTop - 85,behavior:'smooth'});
@@ -146,6 +210,10 @@ function syncEdits() {
     scene.prompt = row.querySelector('textarea').value;
     scene.status = row.querySelector('select').value;
   });
+}
+
+function visualLabel(value) {
+  return ({bible:'펼쳐진 성경',water:'생명의 물',seed:'자라나는 씨앗',path:'빛으로 가는 길',candle:'기도의 촛불',cross:'십자가',light:'말씀의 빛'})[value] || '말씀의 빛';
 }
 
 $('#edit-again').addEventListener('click', () => {
@@ -283,26 +351,59 @@ function drawVideoFrame(ctx, canvas, project, time) {
   glow.addColorStop(0, `${colors[2]}99`); glow.addColorStop(1, `${colors[2]}00`);
   ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.save();
-  ctx.translate(canvas.width * .73, canvas.height * .37);
-  ctx.rotate(local * .025);
-  for (let ring = 0; ring < 4; ring += 1) {
-    ctx.beginPath(); ctx.arc(0, 0, 100 + ring * 82, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(244,224,181,${.20 - ring * .035})`; ctx.lineWidth = 2; ctx.stroke();
-  }
-  ctx.fillStyle = '#f3dca8'; ctx.font = '72px Georgia'; ctx.textAlign = 'center'; ctx.fillText('✦', 0, 24);
-  ctx.restore();
+  drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
 
   ctx.fillStyle = 'rgba(255,253,247,.80)'; ctx.font = '600 28px "Malgun Gothic", sans-serif'; ctx.textAlign = 'left';
   ctx.fillText('VINCENTIO · 말씀 영상 스튜디오', 120, 105);
   ctx.fillStyle = colors[2]; ctx.fillRect(120, 146, 92, 4);
   ctx.fillStyle = '#fffdf7'; ctx.font = '700 58px "Malgun Gothic", sans-serif';
-  drawWrappedText(ctx, scene.narration, 120, 690, 1100, 82, 4);
+  drawWrappedText(ctx, scene.narration || '묵상의 여백', 120, 690, 1100, 82, 4);
   ctx.fillStyle = 'rgba(255,255,255,.70)'; ctx.font = '28px "Malgun Gothic", sans-serif';
   ctx.fillText(project.source, 120, 950);
   ctx.textAlign = 'right'; ctx.fillText(`${scene.index} / ${project.scenes.length}`, 1800, 950);
   ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(120, 995, 1680, 5);
   ctx.fillStyle = colors[2]; ctx.fillRect(120, 995, 1680 * Math.min(1, time / project.duration), 5);
+}
+
+function drawSceneIllustration(ctx, canvas, visual, colors, local) {
+  const x = canvas.width * .74;
+  const y = canvas.height * .38;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = 'rgba(247,228,186,.88)';
+  ctx.fillStyle = 'rgba(247,228,186,.76)';
+  ctx.lineWidth = 10;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.globalAlpha = .22;
+  ctx.beginPath(); ctx.arc(0, 0, 330 + Math.sin(local) * 8, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  if (visual === 'bible') {
+    ctx.beginPath(); ctx.moveTo(-250,-80); ctx.quadraticCurveTo(-115,-145,-12,-55); ctx.lineTo(-12,170); ctx.quadraticCurveTo(-130,95,-250,125); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(250,-80); ctx.quadraticCurveTo(115,-145,12,-55); ctx.lineTo(12,170); ctx.quadraticCurveTo(130,95,250,125); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(25,57,48,.55)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,-55);ctx.lineTo(0,170);ctx.stroke();
+  } else if (visual === 'water') {
+    for (let row=0;row<5;row+=1){ctx.beginPath();for(let px=-290;px<=290;px+=20){const py=row*58-110+Math.sin(px/70+local*1.2+row)*18;px===-290?ctx.moveTo(px,py):ctx.lineTo(px,py)}ctx.stroke();}
+    ctx.beginPath();ctx.arc(0,-170,62,0,Math.PI*2);ctx.fill();
+  } else if (visual === 'seed') {
+    ctx.beginPath();ctx.moveTo(-310,135);ctx.quadraticCurveTo(0,40,310,135);ctx.lineTo(310,240);ctx.lineTo(-310,240);ctx.closePath();ctx.fillStyle='rgba(83,61,42,.62)';ctx.fill();
+    ctx.strokeStyle='rgba(247,228,186,.92)';ctx.beginPath();ctx.moveTo(0,120);ctx.quadraticCurveTo(-15,5,8,-155);ctx.stroke();
+    ctx.fillStyle='rgba(197,221,164,.9)';ctx.beginPath();ctx.ellipse(-65,-70,85,38,-.45,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(70,-120,90,40,.4,0,Math.PI*2);ctx.fill();
+  } else if (visual === 'path') {
+    ctx.fillStyle='rgba(247,228,186,.55)';ctx.beginPath();ctx.moveTo(-55,-260);ctx.quadraticCurveTo(170,-60,-260,280);ctx.lineTo(250,280);ctx.quadraticCurveTo(-55,-15,55,-260);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(247,228,186,.9)';ctx.beginPath();ctx.arc(0,-260,42,0,Math.PI*2);ctx.fill();
+  } else if (visual === 'candle') {
+    ctx.fillStyle='rgba(255,245,214,.92)';ctx.fillRect(-90,-40,180,250);ctx.fillStyle=colors[2];ctx.beginPath();ctx.moveTo(0,-220);ctx.bezierCurveTo(-95,-105,-48,-60,0,-45);ctx.bezierCurveTo(55,-75,88,-125,0,-220);ctx.fill();
+    ctx.globalAlpha=.22;ctx.beginPath();ctx.arc(0,-110,220+Math.sin(local*2)*12,0,Math.PI*2);ctx.fill();
+  } else if (visual === 'cross') {
+    ctx.fillRect(-38,-250,76,520);ctx.fillRect(-210,-90,420,76);ctx.globalAlpha=.18;ctx.beginPath();ctx.arc(0,0,320+Math.sin(local)*10,0,Math.PI*2);ctx.fill();
+  } else {
+    ctx.globalAlpha=.24;for(let ring=0;ring<4;ring+=1){ctx.beginPath();ctx.arc(0,0,90+ring*75+Math.sin(local)*5,0,Math.PI*2);ctx.stroke();}
+    ctx.globalAlpha=1;ctx.font='110px Georgia';ctx.textAlign='center';ctx.fillText('✦',0,38);
+  }
+  ctx.restore();
 }
 
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {

@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "index.html"
+      - "app.js"
+      - "styles.css"
+      - "homepage.css"
+      - "manifest.webmanifest"
       - "site/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -29,13 +33,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Use root index.html
+      - name: Assemble public site
         shell: bash
-        run: cp index.html site/index.html
+        run: |
+          mkdir -p _site/site
+          cp index.html app.js styles.css homepage.css manifest.webmanifest .nojekyll _site/
+          cp site/styles.css _site/site/styles.css
       - name: Upload static app
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

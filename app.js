@@ -142,4 +142,3 @@ function formatTime(value){const seconds=Math.max(0,Math.floor(value||0));return
 function srtTime(value){const ms=Math.round(value*1000);const h=Math.floor(ms/3600000);const m=Math.floor(ms%3600000/60000);const s=Math.floor(ms%60000/1000);return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms%1000).padStart(3,'0')}`;}
 function safeName(value){return value.replace(/[\\/:*?"<>|]/g,'_').slice(0,70)||'vincentio-project';}
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}
-

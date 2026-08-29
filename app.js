@@ -11,13 +11,25 @@ let autoTranscriptChunks = [];
 let transcriptionSequence = 0;
 let draftSaveTimer = null;
 let scriptureSuggestions = [];
+let characterLibrary = [];
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
 const CHARACTER_PROFILE_KEY = 'vincentio-character-profile-v1';
+const CHARACTER_LIBRARY_KEY = 'vincentio-character-library-v1';
 const FONT_PROFILES = {
   serif: {label:'명조체 · 경건한 말씀', family:'Georgia, "Noto Serif KR", "Malgun Myeongjo", serif'},
   clean: {label:'고딕체 · 또렷한 자막', family:'"Noto Sans KR", "Malgun Gothic", Arial, sans-serif'},
   warm: {label:'따뜻한 바탕체', family:'"Gowun Batang", "Nanum Myeongjo", Georgia, serif'}
 };
+const DEFAULT_CHARACTER_LIBRARY = [
+  {id:'jesus', name:'예수님', role:'jesus', description:'1세기 유대 지역의 단정한 옷차림과 과장되지 않은 온화한 표정'},
+  {id:'mary', name:'성모 마리아', role:'mary', description:'푸른 망토와 절제된 베이지 옷차림, 평온하고 자애로운 분위기'},
+  {id:'disciple', name:'제자·사도', role:'disciple', description:'1세기 유대 지역의 소박한 여행자 복장과 경청하는 태도'},
+  {id:'child', name:'아이', role:'child', description:'시대와 장면에 어울리는 소박한 옷차림과 자연스러운 표정'},
+  {id:'mother', name:'어머니', role:'mother', description:'소박한 의복과 따뜻한 보호자의 태도'},
+  {id:'father', name:'아버지', role:'father', description:'소박한 의복과 차분한 보호자의 태도'},
+  {id:'sick', name:'도움이 필요한 사람', role:'sick', description:'존엄을 해치지 않는 단정한 모습'},
+  {id:'crowd', name:'군중', role:'crowd', description:'개별 얼굴을 특정하지 않는 절제된 배경 인물'}
+];
 
 const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, 글자, 자막, 로고, 워터마크, 유명인 얼굴, 성직자 얼굴 모방, 과도한 광선, 판타지 마법, 잔혹한 폭력, 왜곡된 손과 얼굴';
 
@@ -35,6 +47,7 @@ $('#result-font-manual').addEventListener('change', updateResultFontControls);
 $('#compare-scripture').addEventListener('click', compareScriptureText);
 $('#toggle-character-editor').addEventListener('click', toggleCharacterEditor);
 $('#save-character-profile').addEventListener('click', saveCharacterProfile);
+$('#add-character-profile').addEventListener('click', addCharacterProfile);
 $('#approved-scripture').addEventListener('input', () => {
   $('#review-report').classList.add('hidden');
   $('#review-message').textContent = '본문을 바꾸었습니다. 자막 차이 찾아보기를 눌러 새로 비교하세요.';
@@ -243,10 +256,58 @@ function applyScriptureSuggestion(index) {
 }
 
 function getCharacterProfile() {
+  const selectedIds = [...document.querySelectorAll('[data-character-select]:checked')].map((input) => input.value);
+  const characters = characterLibrary.filter((character) => selectedIds.includes(character.id));
   return {
-    roles: [...document.querySelectorAll('input[name="character-role"]:checked')].map((input) => input.value),
+    selectedIds,
+    characters,
+    roles: [...new Set(characters.map((character) => character.role))],
     notes: $('#character-notes').value.trim()
   };
+}
+
+function persistCharacterLibrary() {
+  try { localStorage.setItem(CHARACTER_LIBRARY_KEY, JSON.stringify(characterLibrary)); } catch { /* Keep editing available when storage is blocked. */ }
+}
+
+function renderCharacterDirectory(selectedIds = getCharacterProfile().selectedIds) {
+  $('#character-directory').innerHTML = characterLibrary.map((character) => `<article class="character-card" data-character-id="${escapeHtml(character.id)}"><label><input type="checkbox" data-character-select value="${escapeHtml(character.id)}" ${selectedIds.includes(character.id) ? 'checked' : ''}> 사용</label><input data-character-name value="${escapeHtml(character.name)}" aria-label="인물 이름"><input data-character-description value="${escapeHtml(character.description || '')}" aria-label="인물 묘사"><button class="ghost save-character" type="button">수정</button><button class="ghost delete-character" type="button">삭제</button></article>`).join('');
+  document.querySelectorAll('.save-character').forEach((button) => button.addEventListener('click', () => updateCharacterProfile(button.closest('.character-card'))));
+  document.querySelectorAll('.delete-character').forEach((button) => button.addEventListener('click', () => deleteCharacterProfile(button.closest('.character-card'))));
+}
+
+function updateCharacterProfile(card) {
+  const id = card.dataset.characterId;
+  const character = characterLibrary.find((item) => item.id === id);
+  const name = card.querySelector('[data-character-name]').value.trim();
+  if (!character || !name) return alert('인물 이름을 입력해 주세요.');
+  character.name = name;
+  character.description = card.querySelector('[data-character-description]').value.trim();
+  persistCharacterLibrary();
+  $('#character-profile-message').textContent = `${name} 인물 정보를 업데이트했습니다.`;
+}
+
+function deleteCharacterProfile(card) {
+  const id = card.dataset.characterId;
+  const character = characterLibrary.find((item) => item.id === id);
+  if (!character || !confirm(`“${character.name}” 인물을 보관함에서 삭제할까요?`)) return;
+  characterLibrary = characterLibrary.filter((item) => item.id !== id);
+  persistCharacterLibrary();
+  renderCharacterDirectory(getCharacterProfile().selectedIds.filter((selectedId) => selectedId !== id));
+  $('#character-profile-message').textContent = `${character.name} 인물을 삭제했습니다.`;
+}
+
+function addCharacterProfile() {
+  const name = $('#new-character-name').value.trim();
+  if (!name) return alert('새 인물의 이름을 입력해 주세요.');
+  const character = {id:`person-${Date.now()}`, name, role:$('#new-character-role').value, description:$('#new-character-description').value.trim()};
+  characterLibrary.push(character);
+  persistCharacterLibrary();
+  const selectedIds = [...getCharacterProfile().selectedIds, character.id];
+  renderCharacterDirectory(selectedIds);
+  $('#new-character-name').value = '';
+  $('#new-character-description').value = '';
+  $('#character-profile-message').textContent = `${name} 인물을 추가했습니다. 이번 영상에도 선택되었습니다.`;
 }
 
 function toggleCharacterEditor() {
@@ -257,7 +318,7 @@ function toggleCharacterEditor() {
 
 function saveCharacterProfile() {
   const profile = getCharacterProfile();
-  const summary = profile.roles.length ? `${profile.roles.map(characterLabel).join(' · ')} 설정을 저장했습니다.` : '선택한 인물 없이 공통 묘사만 저장했습니다.';
+  const summary = profile.characters.length ? `${profile.characters.map((character) => character.name).join(' · ')} 설정을 저장했습니다.` : '선택한 인물 없이 공통 묘사만 저장했습니다.';
   $('#character-profile-message').textContent = summary;
   try { localStorage.setItem(CHARACTER_PROFILE_KEY, JSON.stringify(profile)); } catch { /* Keep editing available when storage is blocked. */ }
   if (currentProject) {
@@ -268,9 +329,12 @@ function saveCharacterProfile() {
 
 function restoreCharacterProfile() {
   try {
+    const library = JSON.parse(localStorage.getItem(CHARACTER_LIBRARY_KEY) || 'null');
+    characterLibrary = Array.isArray(library) && library.length ? library : DEFAULT_CHARACTER_LIBRARY.map((character) => ({...character}));
     const profile = JSON.parse(localStorage.getItem(CHARACTER_PROFILE_KEY) || 'null');
+    const selectedIds = profile?.selectedIds || characterLibrary.filter((character) => (profile?.roles || []).includes(character.role)).map((character) => character.id);
+    renderCharacterDirectory(selectedIds);
     if (!profile) return;
-    document.querySelectorAll('input[name="character-role"]').forEach((input) => { input.checked = (profile.roles || []).includes(input.value); });
     $('#character-notes').value = profile.notes || '';
     $('#character-profile-message').textContent = '저장한 등장인물 설정을 불러왔습니다.';
   } catch { /* Ignore unavailable or invalid local data. */ }
@@ -344,7 +408,8 @@ async function buildProject(transcript) {
     const characters = [...new Set([...chooseSceneCharacters(narration), ...characterProfile.roles])].slice(0,4);
     const setting = chooseSceneSetting(narration);
     const baseCharacterDescription = buildCharacterDescription(characters, narration, setting);
-    const characterDescription = characterProfile.notes ? `${baseCharacterDescription} 공통 인물 설정: ${characterProfile.notes}` : baseCharacterDescription;
+    const savedCharacterDescriptions = characterProfile.characters.map((character) => `${character.name}: ${character.description || characterLabel(character.role)}`).join('; ');
+    const characterDescription = [baseCharacterDescription, savedCharacterDescriptions ? `저장한 인물 설정: ${savedCharacterDescriptions}` : '', characterProfile.notes ? `공통 인물 설정: ${characterProfile.notes}` : ''].filter(Boolean).join(' ');
     scenes.push({
       index: index + 1, start, end, narration,
       prompt: makePrompt(narration, index, characters, characterDescription),
@@ -654,7 +719,8 @@ $('#restore-draft').addEventListener('click', () => {
     $('#approved-scripture').value = draft.form?.approvedScripture || draft.project.scriptureReview?.referenceText || '';
     $('#review-rights-check').checked = Boolean(draft.form?.reviewRights || draft.project.scriptureReview?.rightsConfirmed);
     const characterProfile = draft.form?.characterProfile || draft.project.characterProfile || {};
-    document.querySelectorAll('input[name="character-role"]').forEach((input) => { input.checked = (characterProfile.roles || []).includes(input.value); });
+    const selectedIds = characterProfile.selectedIds || characterLibrary.filter((character) => (characterProfile.roles || []).includes(character.role)).map((character) => character.id);
+    renderCharacterDirectory(selectedIds);
     $('#character-notes').value = characterProfile.notes || '';
     currentProject = draft.project;
     currentProject.font ||= getSelectedFont(currentProject.transcript || '');

@@ -11,6 +11,17 @@
   <link rel="stylesheet" href="./homepage.css?v=20260830-2">
 </head>
 <body>
+  <section id="auth-gate" class="auth-gate" aria-live="polite">
+    <div class="auth-card">
+      <i class="brand-mark">V</i>
+      <p class="eyebrow"><span></span> PRIVATE STUDIO</p>
+      <h1>빈첸시오 말씀방<br>제작자 로그인</h1>
+      <p>등록된 Google 계정으로 로그인한 뒤 영상 제작 도구를 이용할 수 있습니다.</p>
+      <button class="primary" id="google-login" type="button">Google로 계속하기</button>
+      <p class="auth-status" id="auth-status">로그인 상태를 확인하고 있습니다.</p>
+    </div>
+  </section>
+  <div id="protected-app" class="hidden">
   <header class="topbar">
     <a class="brand" href="./"><i class="brand-mark">V</i><span class="brand-copy"><b>VINCENTIO</b><small>말씀 영상 스튜디오</small></span></a>
     <nav aria-label="주요 메뉴">
@@ -20,6 +31,7 @@
     </nav>
     <div class="top-actions">
       <span class="privacy"><i></i> 음성은 이 기기에서만 처리</span>
+      <button class="ghost account-button" id="sign-out" type="button">로그아웃</button>
       <a class="ghost" href="https://github.com/micolrun/vincencio" target="_blank" rel="noreferrer">GitHub</a>
     </div>
   </header>
@@ -131,9 +143,8 @@
           <section class="character-editor" aria-labelledby="character-editor-title">
             <div class="character-editor-head"><div><small>CHARACTER MODE</small><h3 id="character-editor-title">등장인물 편집 모드</h3><p>등장인물을 미리 정하고 공통 묘사를 저장할 수 있습니다. 장면별 세부 묘사는 장면 설계 후에도 계속 편집할 수 있습니다.</p></div><button class="ghost" id="toggle-character-editor" type="button">등장인물 편집 열기</button></div>
             <div class="character-editor-body hidden" id="character-editor-body">
-              <fieldset><legend>영상에 반복해서 나오는 인물</legend><div class="character-options">
-                <label><input type="checkbox" name="character-role" value="jesus"> 예수님</label><label><input type="checkbox" name="character-role" value="mary"> 성모 마리아</label><label><input type="checkbox" name="character-role" value="disciple"> 제자·사도</label><label><input type="checkbox" name="character-role" value="child"> 아이</label><label><input type="checkbox" name="character-role" value="mother"> 어머니</label><label><input type="checkbox" name="character-role" value="father"> 아버지</label><label><input type="checkbox" name="character-role" value="sick"> 도움이 필요한 사람</label><label><input type="checkbox" name="character-role" value="crowd"> 군중</label>
-              </div></fieldset>
+              <fieldset><legend>인물 보관함 · 이번 영상에 쓸 인물을 선택하세요</legend><div class="character-directory" id="character-directory"></div></fieldset>
+              <div class="character-add"><strong>새 인물 추가</strong><div class="character-add-grid"><input id="new-character-name" placeholder="인물 이름 · 예: 베드로"><select id="new-character-role" aria-label="새 인물 유형"><option value="person">일반 인물</option><option value="disciple">제자·사도</option><option value="mother">어머니</option><option value="father">아버지</option><option value="child">아이</option><option value="sick">도움이 필요한 사람</option><option value="crowd">군중</option></select></div><textarea id="new-character-description" rows="3" placeholder="외모·의복·태도 등 영상에 계속 적용할 묘사"></textarea><button class="ghost" id="add-character-profile" type="button">인물 보관함에 추가</button></div>
               <label for="character-notes">공통 인물 묘사</label><textarea id="character-notes" rows="4" placeholder="예: 예수님은 단정한 1세기 유대 지역 복장, 과장되지 않은 온화한 표정. 모든 인물은 실제 인물·유명인 얼굴을 닮지 않게 표현."></textarea>
               <div class="review-actions"><button class="ghost" id="save-character-profile" type="button">인물 설정 저장</button><span id="character-profile-message">장면 설계에 적용할 인물을 선택하세요.</span></div>
             </div>
@@ -214,6 +225,8 @@
     <span>빈첸시오 말씀방 영상 스튜디오</span>
     <span>사람의 묵상과 최종 승인을 중심으로 설계되었습니다.</span>
   </footer>
+  </div>
   <script src="./app.js?v=20260830-2"></script>
+  <script type="module" src="./firebase-auth.js?v=20260830-1"></script>
 </body>
 </html>

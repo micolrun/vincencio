@@ -6,6 +6,7 @@ on:
     paths:
       - "index.html"
       - "app.js"
+      - "firebase-auth.js"
       - "styles.css"
       - "homepage.css"
       - "manifest.webmanifest"
@@ -37,7 +38,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p _site/site
-          cp index.html app.js styles.css homepage.css manifest.webmanifest .nojekyll _site/
+          cp index.html app.js firebase-auth.js styles.css homepage.css manifest.webmanifest .nojekyll _site/
           cp site/styles.css _site/site/styles.css
       - name: Upload static app
         uses: actions/upload-pages-artifact@v4

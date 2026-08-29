@@ -10,6 +10,7 @@ on:
       - "styles.css"
       - "homepage.css"
       - "manifest.webmanifest"
+      - "assets/**"
       - "site/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -39,6 +40,7 @@ jobs:
         run: |
           mkdir -p _site/site
           cp index.html app.js firebase-auth.js styles.css homepage.css manifest.webmanifest .nojekyll _site/
+          cp -R assets _site/assets
           cp site/styles.css _site/site/styles.css
       - name: Upload static app
         uses: actions/upload-pages-artifact@v4

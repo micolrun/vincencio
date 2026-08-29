@@ -8,6 +8,12 @@
 
 빈첸시오님 PC에서는 소스코드를 직접 수정하거나 `git pull`하지 않습니다. 검증된 Release ZIP만 설치하며, 음성·영상·API 키는 GitHub에 올리지 않습니다. 결정 배경은 [ADR-0001](docs/adr/0001-github-centered-delivery.md), 보안 규칙은 [SECURITY.md](SECURITY.md)를 참고하세요.
 
+## GitHub Pages 앱
+
+설치 없는 브라우저 버전은 `https://micolrun.github.io/vincencio/`에서 실행됩니다. `site/`의 정적 앱을 `.github/workflows/pages.yml`이 자동 배포합니다. Pages 버전은 음성을 외부로 전송하지 않고 파일 길이를 읽어 5초 장면표, 자막, 이미지 프롬프트, 썸네일 콘셉트와 해시태그를 만들며 SRT와 프로젝트 JSON을 내려받습니다.
+
+GitHub Pages는 서버 프로그램을 실행하거나 비밀 API 키를 안전하게 보관할 수 없으므로 AI 전사·이미지 생성·Remotion MP4 렌더링은 별도 HTTPS 백엔드가 필요합니다. 구조 결정은 [ADR-0002](docs/adr/0002-github-pages-browser-app.md)를 참고하세요.
+
 ## 현재 구현된 기능
 
 - WAV, MP3, M4A, AAC, OGG, WebM, MP4 업로드

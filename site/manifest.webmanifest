@@ -1,0 +1,10 @@
+{
+  "name": "빈첸시오 말씀방 영상 스튜디오",
+  "short_name": "말씀 영상",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1eee5",
+  "theme_color": "#19362d",
+  "lang": "ko"
+}
+

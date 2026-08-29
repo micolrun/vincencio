@@ -6,6 +6,9 @@ let currentProject = null;
 let renderAudioContext = null;
 let renderAudioSource = null;
 let renderAudioDestination = null;
+let whisperTranscriber = null;
+let autoTranscriptChunks = [];
+let transcriptionSequence = 0;
 
 const commonNegative = '사진 같은 기록물, 현대 의복, 현대 건물, 글자, 자막, 로고, 워터마크, 유명인 얼굴, 성직자 얼굴 모방, 과도한 광선, 판타지 마법, 잔혹한 폭력, 왜곡된 손과 얼굴';
 
@@ -41,7 +44,74 @@ function loadAudio(file) {
     audioDuration = Number.isFinite(player.duration) ? player.duration : 0;
     $('#file-name').textContent = `${file.name} · ${formatTime(audioDuration)}`;
     updateProgress();
+    autoTranscribeAudio(file);
   };
+}
+
+$('#retry-transcribe').addEventListener('click', () => {
+  if (audioFile) autoTranscribeAudio(audioFile, true);
+});
+
+async function autoTranscribeAudio(file, force = false) {
+  if (!file || (!force && $('#transcript').value.trim())) return;
+  const sequence = ++transcriptionSequence;
+  const box = $('#transcribe-box');
+  box.classList.remove('hidden','done','error');
+  setTranscribeProgress(2, 'Whisper AI 준비 중', '음성은 외부로 전송하지 않고 이 브라우저에서 처리합니다.');
+  $('#retry-transcribe').disabled = true;
+  try {
+    if (!whisperTranscriber) {
+      const {pipeline} = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+      const progressCallback = (event) => {
+        if (sequence !== transcriptionSequence) return;
+        if (event.status === 'progress') {
+          const value = Math.max(3, Math.min(65, Math.round((event.progress || 0) * .62)));
+          setTranscribeProgress(value, '한국어 음성 모델 내려받는 중', `${value}% · 처음 한 번만 필요합니다.`);
+        } else if (event.status === 'ready') {
+          setTranscribeProgress(68, '한국어 음성 모델 준비 완료', '이제 음성을 분석합니다.');
+        }
+      };
+      const options = {progress_callback: progressCallback};
+      if ('gpu' in navigator) options.device = 'webgpu';
+      try {
+        whisperTranscriber = await pipeline('automatic-speech-recognition','onnx-community/whisper-tiny',options);
+      } catch (webGpuError) {
+        if (!options.device) throw webGpuError;
+        setTranscribeProgress(8, '호환 모드로 다시 준비 중', '그래픽 가속 대신 안정적인 CPU 모드를 사용합니다.');
+        whisperTranscriber = await pipeline('automatic-speech-recognition','onnx-community/whisper-tiny',{progress_callback:progressCallback,device:'wasm'});
+      }
+    }
+    if (sequence !== transcriptionSequence) return;
+    setTranscribeProgress(72, '목소리를 글자로 바꾸는 중', '녹음 길이와 컴퓨터 성능에 따라 몇 분 걸릴 수 있습니다.');
+    const result = await whisperTranscriber(audioUrl, {
+      language: 'ko', task: 'transcribe', return_timestamps: true,
+      chunk_length_s: 30, stride_length_s: 5
+    });
+    if (sequence !== transcriptionSequence) return;
+    const text = String(result.text || '').trim();
+    if (!text) throw new Error('음성에서 말소리를 찾지 못했습니다.');
+    autoTranscriptChunks = (result.chunks || []).map((chunk) => ({
+      text: String(chunk.text || '').trim(),
+      timestamp: [Number(chunk.timestamp?.[0] || 0), Number(chunk.timestamp?.[1] ?? audioDuration)]
+    })).filter((chunk) => chunk.text);
+    $('#transcript').value = text;
+    $('#transcript').dispatchEvent(new Event('input',{bubbles:true}));
+    box.classList.add('done');
+    setTranscribeProgress(100, '자동 자막이 완성되었습니다', '아래 자막을 읽어보고 잘못 들은 부분만 고쳐주세요.');
+  } catch (error) {
+    console.error('Automatic transcription failed', error);
+    autoTranscriptChunks = [];
+    box.classList.add('error');
+    setTranscribeProgress(0, '자동 자막을 만들지 못했습니다', '다시 받기를 누르거나 녹취문을 직접 입력해 주세요.');
+  } finally {
+    if (sequence === transcriptionSequence) $('#retry-transcribe').disabled = false;
+  }
+}
+
+function setTranscribeProgress(percent, title, message) {
+  $('#transcribe-progress').style.width = `${percent}%`;
+  $('#transcribe-title').textContent = title;
+  $('#transcribe-message').textContent = message;
 }
 
 function updateProgress() {
@@ -89,7 +159,8 @@ async function buildProject(transcript) {
   const duration = Math.max(5, audioDuration);
   const sceneTotal = Math.ceil(duration / 5);
   const words = transcript.split(/\s+/).filter(Boolean);
-  const speechWeights = await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
+  const captions = makeTimedCaptions(transcript, autoTranscriptChunks, duration);
+  const speechWeights = captions.length ? Array(sceneTotal).fill(1) : await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
   const totalWeight = speechWeights.reduce((sum, value) => sum + value, 0) || sceneTotal;
   const title = $('#title').value.trim() || inferTitle(transcript);
   const scenes = [];
@@ -98,10 +169,15 @@ async function buildProject(transcript) {
   for (let index = 0; index < sceneTotal; index += 1) {
     const start = index * 5;
     const end = Math.min(duration, start + 5);
-    accumulatedWeight += speechWeights[index];
-    const targetCursor = index === sceneTotal - 1 ? words.length : Math.round(words.length * accumulatedWeight / totalWeight);
-    const narration = words.slice(wordCursor, Math.max(wordCursor, targetCursor)).join(' ');
-    wordCursor = targetCursor;
+    let narration;
+    if (captions.length) {
+      narration = captions.filter((caption) => caption.end > start && caption.start < end).map((caption) => caption.text).join(' ');
+    } else {
+      accumulatedWeight += speechWeights[index];
+      const targetCursor = index === sceneTotal - 1 ? words.length : Math.round(words.length * accumulatedWeight / totalWeight);
+      narration = words.slice(wordCursor, Math.max(wordCursor, targetCursor)).join(' ');
+      wordCursor = targetCursor;
+    }
     scenes.push({
       index: index + 1, start, end, narration,
       prompt: makePrompt(narration, index),
@@ -117,10 +193,30 @@ async function buildProject(transcript) {
     source: $('#source').value.trim(),
     duration,
     transcript,
+    captions,
     hashtags: makeHashtags(transcript),
     thumbnailPrompt: `고요한 새벽빛 아래 펼쳐진 성경과 따뜻한 빛, ${title}의 정서를 상징하는 절제된 수채화, 오른쪽 제목 여백, 16:9, 이미지 안 글자 없음`,
     scenes
   };
+}
+
+function makeTimedCaptions(transcript, chunks, duration) {
+  if (!chunks.length) return [];
+  const words = transcript.split(/\s+/).filter(Boolean);
+  const weights = chunks.map((chunk) => Math.max(1, chunk.text.split(/\s+/).filter(Boolean).length));
+  const total = weights.reduce((sum,value) => sum + value,0);
+  let cursor = 0;
+  let accumulated = 0;
+  return chunks.map((chunk,index) => {
+    accumulated += weights[index];
+    const target = index === chunks.length - 1 ? words.length : Math.round(words.length * accumulated / total);
+    const text = words.slice(cursor,target).join(' ') || chunk.text;
+    cursor = target;
+    const start = Math.max(0, Number(chunk.timestamp[0] || 0));
+    const endValue = Number(chunk.timestamp[1]);
+    const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 5);
+    return {index:index+1,start,end,text};
+  });
 }
 
 async function analyzeSpeechWeights(file, sceneTotal) {
@@ -224,7 +320,8 @@ $('#download-json').addEventListener('click', () => {
 });
 $('#download-srt').addEventListener('click', () => {
   syncEdits();
-  const srt = currentProject.scenes.map((scene,index) => `${index+1}\n${srtTime(scene.start)} --> ${srtTime(scene.end)}\n${scene.narration}\n`).join('\n');
+  const entries = currentProject.captions?.length ? currentProject.captions : currentProject.scenes.map((scene) => ({start:scene.start,end:scene.end,text:scene.narration}));
+  const srt = entries.map((entry,index) => `${index+1}\n${srtTime(entry.start)} --> ${srtTime(entry.end)}\n${entry.text}\n`).join('\n');
   download(`${safeName(currentProject.title)}.srt`, srt, 'text/plain;charset=utf-8');
 });
 
@@ -336,6 +433,7 @@ function setRenderProgress(percent, message) {
 
 function drawVideoFrame(ctx, canvas, project, time) {
   const scene = project.scenes.find((item) => time >= item.start && time < item.end) || project.scenes.at(-1);
+  const timedCaption = project.captions?.find((item) => time >= item.start && time < item.end);
   const local = Math.max(0, time - scene.start);
   const palettes = [
     ['#102f28','#5f7769','#d0a45b'], ['#182c38','#677d80','#d8b36b'],
@@ -357,7 +455,7 @@ function drawVideoFrame(ctx, canvas, project, time) {
   ctx.fillText('VINCENTIO · 말씀 영상 스튜디오', 120, 105);
   ctx.fillStyle = colors[2]; ctx.fillRect(120, 146, 92, 4);
   ctx.fillStyle = '#fffdf7'; ctx.font = '700 58px "Malgun Gothic", sans-serif';
-  drawWrappedText(ctx, scene.narration || '묵상의 여백', 120, 690, 1100, 82, 4);
+  drawWrappedText(ctx, timedCaption?.text || scene.narration || '묵상의 여백', 120, 690, 1100, 82, 4);
   ctx.fillStyle = 'rgba(255,255,255,.70)'; ctx.font = '28px "Malgun Gothic", sans-serif';
   ctx.fillText(project.source, 120, 950);
   ctx.textAlign = 'right'; ctx.fillText(`${scene.index} / ${project.scenes.length}`, 1800, 950);

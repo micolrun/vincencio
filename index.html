@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#19362d">
   <meta name="description" content="음성에서 5초 장면표와 자막, 이미지 프롬프트를 만드는 빈첸시오 말씀방 영상 제작 도구">
   <title>빈첸시오 말씀방 영상 스튜디오</title>
-  <link rel="manifest" href="./manifest.webmanifest?v=20260829-3">
-  <link rel="stylesheet" href="./styles.css?v=20260829-3">
-  <link rel="stylesheet" href="./homepage.css?v=20260829-3">
+  <link rel="manifest" href="./manifest.webmanifest?v=20260829-4">
+  <link rel="stylesheet" href="./styles.css?v=20260829-4">
+  <link rel="stylesheet" href="./homepage.css?v=20260829-4">
 </head>
 <body>
   <header class="topbar">
@@ -85,6 +85,11 @@
             <b id="file-name"></b>
           </label>
           <audio id="audio-player" controls class="hidden"></audio>
+          <div class="transcribe-box hidden" id="transcribe-box" aria-live="polite">
+            <div class="ai-mark">AI</div>
+            <div class="transcribe-copy"><strong id="transcribe-title">음성을 자동으로 받아쓰고 있습니다</strong><span id="transcribe-message">처음 한 번은 Whisper 한국어 모델을 내려받습니다.</span><div class="transcribe-track"><i id="transcribe-progress"></i></div></div>
+            <button class="ghost" id="retry-transcribe" type="button">다시 받기</button>
+          </div>
 
           <div class="input-step"><b>2</b><div><strong>영상 정보를 적어주세요</strong><span>제목은 비워두면 원고에서 자동으로 만듭니다.</span></div></div>
           <div class="form-grid">
@@ -98,10 +103,10 @@
             </div>
           </div>
 
-          <div class="input-step"><b>3</b><div><strong>녹취문을 붙여 넣어주세요</strong><span>현재 웹 버전은 음성을 자동으로 받아쓰지 않습니다.</span></div><em>필수</em></div>
+          <div class="input-step"><b>3</b><div><strong>자동 자막을 확인해 주세요</strong><span>AI가 받아쓴 내용을 직접 고칠 수 있습니다.</span></div><em>자동</em></div>
           <div class="field">
-            <label for="transcript">녹음 원고 또는 전사문</label>
-            <textarea id="transcript" rows="10" placeholder="녹음한 내용을 붙여 넣으세요. 성경 인용은 승인된 원문과 직접 대조해야 합니다."></textarea>
+            <label for="transcript">자동 자막 결과</label>
+            <textarea id="transcript" rows="10" placeholder="음성을 올리면 자동 자막이 여기에 입력됩니다. 실패하면 직접 붙여 넣을 수도 있습니다."></textarea>
             <div class="field-note"><span id="char-count">0자</span><span>원문에 없는 사건·인물·대사는 이미지 프롬프트에 추가하지 않습니다.</span></div>
           </div>
 
@@ -162,6 +167,6 @@
     <span>빈첸시오 말씀방 영상 스튜디오</span>
     <span>사람의 묵상과 최종 승인을 중심으로 설계되었습니다.</span>
   </footer>
-  <script src="./app.js?v=20260829-3"></script>
+  <script src="./app.js?v=20260829-4"></script>
 </body>
 </html>

@@ -1,0 +1,22 @@
+{
+  "name": "vincentio-video-studio",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "studio": "remotion studio remotion/index.ts",
+    "render": "remotion render remotion/index.ts VincentioVideo renders/output.mp4 --props=remotion/sample-props.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.340",
+    "@remotion/google-fonts": "^4.0.340",
+    "@remotion/transitions": "^4.0.340",
+    "remotion": "^4.0.340",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "typescript": "^5.9.2"
+  }
+}
+

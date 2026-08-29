@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>빈첸시오 말씀방 영상 스튜디오</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">VINCENTIO <span>말씀 영상 스튜디오</span></a>
+    <nav>
+      <button class="ghost" id="google-login">Google 로그인</button>
+      <button class="ghost" id="github-connect">GitHub 연결</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">VOICE TO VIDEO · HUMAN APPROVED</p>
+      <h1>목소리를 올리면,<br><em>묵상 영상의 초안</em>이 완성됩니다.</h1>
+      <p class="hero-copy">전사, 5초 장면 구성, 자막, 이미지 프롬프트, 썸네일과 해시태그를 한 번에 만들고 사람이 마지막으로 확인합니다.</p>
+    </section>
+
+    <section class="workspace">
+      <aside class="steps">
+        <div class="step active"><b>01</b><span>음성 업로드</span></div>
+        <div class="step"><b>02</b><span>전사·장면 생성</span></div>
+        <div class="step"><b>03</b><span>원문·화면 검수</span></div>
+        <div class="step"><b>04</b><span>렌더링·내보내기</span></div>
+      </aside>
+
+      <section class="panel upload-panel" id="upload-panel">
+        <div class="panel-heading">
+          <div><small>NEW PROJECT</small><h2>새 묵상 영상 만들기</h2></div>
+          <span class="status" id="mode-badge">확인 중</span>
+        </div>
+        <form id="upload-form">
+          <label class="dropzone" id="dropzone">
+            <input id="audio" name="audio" type="file" accept="audio/*,video/mp4" required>
+            <span class="mic">◉</span>
+            <strong>녹음 파일을 놓거나 선택하세요</strong>
+            <span>WAV · MP3 · M4A · 최대 200MB</span>
+            <span class="filename" id="filename"></span>
+          </label>
+          <div class="field">
+            <label for="source_reference">성경 위치와 승인된 출처</label>
+            <input id="source_reference" name="source_reference" placeholder="예: 마태 13,1-9 · 사용 승인 문서/URL">
+          </div>
+          <label class="check"><input type="checkbox" name="copyright_approved" value="true"> 이 콘텐츠에 필요한 저작권 사용 범위를 확인했습니다.</label>
+          <button class="primary" type="submit">영상 초안 만들기 <span>→</span></button>
+        </form>
+        <div class="progress hidden" id="progress">
+          <span></span><p>음성을 분석하고 5초 장면을 설계하고 있습니다…</p>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="result-panel">
+        <div class="panel-heading">
+          <div><small>REVIEW PROJECT</small><h2 id="project-title">영상 초안</h2></div>
+          <span class="status warning">사람 검수 필요</span>
+        </div>
+        <div class="result-grid">
+          <article class="preview">
+            <div class="video-frame"><div class="frame-copy"><small>THUMBNAIL CONCEPT</small><strong id="thumb-title"></strong></div></div>
+            <div class="tags" id="tags"></div>
+          </article>
+          <article>
+            <h3>전사 내용</h3>
+            <textarea id="transcript" rows="9"></textarea>
+            <p class="hint">성경 인용은 승인된 원문과 직접 대조하세요.</p>
+          </article>
+        </div>
+        <h3>5초 장면표</h3>
+        <div class="scene-list" id="scene-list"></div>
+        <div class="warnings" id="warnings"></div>
+        <div class="actions">
+          <button class="ghost" id="back">다른 파일 선택</button>
+          <button class="primary" id="save-review">검수 내용 저장</button>
+          <button class="primary" id="approve">최종 승인</button>
+          <button class="primary" id="render" disabled>영상 렌더링</button>
+        </div>
+      </section>
+    </section>
+  </main>
+  <footer>성경 원문 · 저작권 · 교리 · AI 시각화는 게시 전에 사람이 최종 승인합니다.</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

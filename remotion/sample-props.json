@@ -1,0 +1,13 @@
+{
+  "title": "오늘의 말씀과 삶으로 옮기는 한 가지",
+  "duration": 10,
+  "scenes": [
+    {"index": 1, "start": 0, "end": 5, "narration": "오늘의 말씀"},
+    {"index": 2, "start": 5, "end": 10, "narration": "삶으로 옮기는 한 가지"}
+  ],
+  "captions": [
+    {"start": 0, "end": 5, "text": "오늘의 말씀을 함께 묵상합니다."},
+    {"start": 5, "end": 10, "text": "삶으로 옮길 한 가지를 찾아봅니다."}
+  ]
+}
+

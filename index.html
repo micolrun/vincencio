@@ -128,6 +128,17 @@
             <div class="field-note"><span id="char-count">0자</span><span>원문에 없는 사건·인물·대사는 이미지 프롬프트에 추가하지 않습니다.</span></div>
           </div>
 
+          <section class="character-editor" aria-labelledby="character-editor-title">
+            <div class="character-editor-head"><div><small>CHARACTER MODE</small><h3 id="character-editor-title">등장인물 편집 모드</h3><p>등장인물을 미리 정하고 공통 묘사를 저장할 수 있습니다. 장면별 세부 묘사는 장면 설계 후에도 계속 편집할 수 있습니다.</p></div><button class="ghost" id="toggle-character-editor" type="button">등장인물 편집 열기</button></div>
+            <div class="character-editor-body hidden" id="character-editor-body">
+              <fieldset><legend>영상에 반복해서 나오는 인물</legend><div class="character-options">
+                <label><input type="checkbox" name="character-role" value="jesus"> 예수님</label><label><input type="checkbox" name="character-role" value="mary"> 성모 마리아</label><label><input type="checkbox" name="character-role" value="disciple"> 제자·사도</label><label><input type="checkbox" name="character-role" value="child"> 아이</label><label><input type="checkbox" name="character-role" value="mother"> 어머니</label><label><input type="checkbox" name="character-role" value="father"> 아버지</label><label><input type="checkbox" name="character-role" value="sick"> 도움이 필요한 사람</label><label><input type="checkbox" name="character-role" value="crowd"> 군중</label>
+              </div></fieldset>
+              <label for="character-notes">공통 인물 묘사</label><textarea id="character-notes" rows="4" placeholder="예: 예수님은 단정한 1세기 유대 지역 복장, 과장되지 않은 온화한 표정. 모든 인물은 실제 인물·유명인 얼굴을 닮지 않게 표현."></textarea>
+              <div class="review-actions"><button class="ghost" id="save-character-profile" type="button">인물 설정 저장</button><span id="character-profile-message">장면 설계에 적용할 인물을 선택하세요.</span></div>
+            </div>
+          </section>
+
           <section class="scripture-review" aria-labelledby="scripture-review-title">
             <div class="scripture-review-head">
               <div><small>SAFE REVIEW</small><h3 id="scripture-review-title">성경 자막 검토</h3><p>CBCK 본문을 자동으로 가져오거나 저장하지 않습니다. 사용 권한이 있는 본문만 붙여 넣어 자막과 비교하세요.</p></div>
@@ -182,7 +193,7 @@
           </div>
 
           <div class="actions">
-            <button class="ghost" id="edit-again">입력 수정</button>
+            <button class="ghost" id="edit-again">입력·등장인물 수정</button>
             <button class="ghost" id="download-srt">SRT 자막</button>
             <button class="ghost" id="save-project" type="button">변경 저장</button>
             <button class="primary" id="download-json">프로젝트 저장</button>

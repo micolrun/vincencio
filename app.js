@@ -12,6 +12,7 @@ let transcriptionSequence = 0;
 let draftSaveTimer = null;
 let scriptureSuggestions = [];
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
+const CHARACTER_PROFILE_KEY = 'vincentio-character-profile-v1';
 const FONT_PROFILES = {
   serif: {label:'명조체 · 경건한 말씀', family:'Georgia, "Noto Serif KR", "Malgun Myeongjo", serif'},
   clean: {label:'고딕체 · 또렷한 자막', family:'"Noto Sans KR", "Malgun Gothic", Arial, sans-serif'},
@@ -32,6 +33,8 @@ $('#font-manual').addEventListener('change', updateFontControls);
 $('#result-font-mode').addEventListener('change', updateResultFontControls);
 $('#result-font-manual').addEventListener('change', updateResultFontControls);
 $('#compare-scripture').addEventListener('click', compareScriptureText);
+$('#toggle-character-editor').addEventListener('click', toggleCharacterEditor);
+$('#save-character-profile').addEventListener('click', saveCharacterProfile);
 $('#approved-scripture').addEventListener('input', () => {
   $('#review-report').classList.add('hidden');
   $('#review-message').textContent = '본문을 바꾸었습니다. 자막 차이 찾아보기를 눌러 새로 비교하세요.';
@@ -239,6 +242,40 @@ function applyScriptureSuggestion(index) {
   if (currentProject) persistDraft('검토 승인 자막을 저장했습니다.');
 }
 
+function getCharacterProfile() {
+  return {
+    roles: [...document.querySelectorAll('input[name="character-role"]:checked')].map((input) => input.value),
+    notes: $('#character-notes').value.trim()
+  };
+}
+
+function toggleCharacterEditor() {
+  const body = $('#character-editor-body');
+  const hidden = body.classList.toggle('hidden');
+  $('#toggle-character-editor').textContent = hidden ? '등장인물 편집 열기' : '등장인물 편집 닫기';
+}
+
+function saveCharacterProfile() {
+  const profile = getCharacterProfile();
+  const summary = profile.roles.length ? `${profile.roles.map(characterLabel).join(' · ')} 설정을 저장했습니다.` : '선택한 인물 없이 공통 묘사만 저장했습니다.';
+  $('#character-profile-message').textContent = summary;
+  try { localStorage.setItem(CHARACTER_PROFILE_KEY, JSON.stringify(profile)); } catch { /* Keep editing available when storage is blocked. */ }
+  if (currentProject) {
+    currentProject.characterProfile = profile;
+    persistDraft('등장인물 설정을 저장했습니다.');
+  }
+}
+
+function restoreCharacterProfile() {
+  try {
+    const profile = JSON.parse(localStorage.getItem(CHARACTER_PROFILE_KEY) || 'null');
+    if (!profile) return;
+    document.querySelectorAll('input[name="character-role"]').forEach((input) => { input.checked = (profile.roles || []).includes(input.value); });
+    $('#character-notes').value = profile.notes || '';
+    $('#character-profile-message').textContent = '저장한 등장인물 설정을 불러왔습니다.';
+  } catch { /* Ignore unavailable or invalid local data. */ }
+}
+
 function updateProgress() {
   const items = [
     {ready: audioDuration > 0, id: '#check-audio'},
@@ -288,6 +325,7 @@ async function buildProject(transcript) {
   const speechWeights = captions.length ? Array(sceneTotal).fill(1) : await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
   const totalWeight = speechWeights.reduce((sum, value) => sum + value, 0) || sceneTotal;
   const title = $('#title').value.trim() || inferTitle(transcript);
+  const characterProfile = getCharacterProfile();
   const scenes = [];
   let wordCursor = 0;
   let accumulatedWeight = 0;
@@ -303,9 +341,10 @@ async function buildProject(transcript) {
       narration = words.slice(wordCursor, Math.max(wordCursor, targetCursor)).join(' ');
       wordCursor = targetCursor;
     }
-    const characters = chooseSceneCharacters(narration);
+    const characters = [...new Set([...chooseSceneCharacters(narration), ...characterProfile.roles])].slice(0,4);
     const setting = chooseSceneSetting(narration);
-    const characterDescription = buildCharacterDescription(characters, narration, setting);
+    const baseCharacterDescription = buildCharacterDescription(characters, narration, setting);
+    const characterDescription = characterProfile.notes ? `${baseCharacterDescription} 공통 인물 설정: ${characterProfile.notes}` : baseCharacterDescription;
     scenes.push({
       index: index + 1, start, end, narration,
       prompt: makePrompt(narration, index, characters, characterDescription),
@@ -332,6 +371,7 @@ async function buildProject(transcript) {
       suggestions: scriptureSuggestions.map(({index, score, applied}) => ({index, score, applied})),
       reviewedAt: scriptureSuggestions.length ? new Date().toISOString() : null
     },
+    characterProfile,
     font: getSelectedFont(transcript),
     hashtags: makeHashtags(transcript),
     thumbnailPrompt: `고요한 새벽빛 아래 펼쳐진 성경과 따뜻한 빛, ${title}의 정서를 상징하는 절제된 수채화, 오른쪽 제목 여백, 16:9, 이미지 안 글자 없음`,
@@ -580,7 +620,7 @@ function persistDraft(message = '이 기기에 저장되었습니다.') {
   try {
     const snapshot = {
       project: currentProject,
-      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked, approvedScripture: $('#approved-scripture').value, reviewRights: $('#review-rights-check').checked},
+      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked, approvedScripture: $('#approved-scripture').value, reviewRights: $('#review-rights-check').checked, characterProfile: getCharacterProfile()},
       savedAt: new Date().toISOString(),
       audioName: audioFile?.name || null
     };
@@ -613,6 +653,9 @@ $('#restore-draft').addEventListener('click', () => {
     $('#copyright-check').checked = Boolean(draft.form?.copyright);
     $('#approved-scripture').value = draft.form?.approvedScripture || draft.project.scriptureReview?.referenceText || '';
     $('#review-rights-check').checked = Boolean(draft.form?.reviewRights || draft.project.scriptureReview?.rightsConfirmed);
+    const characterProfile = draft.form?.characterProfile || draft.project.characterProfile || {};
+    document.querySelectorAll('input[name="character-role"]').forEach((input) => { input.checked = (characterProfile.roles || []).includes(input.value); });
+    $('#character-notes').value = characterProfile.notes || '';
     currentProject = draft.project;
     currentProject.font ||= getSelectedFont(currentProject.transcript || '');
     document.querySelector(`input[name="font-mode"][value="${currentProject.font.mode || 'auto'}"]`).checked = true;
@@ -912,4 +955,5 @@ function escapeHtml(value){const div=document.createElement('div');div.textConte
 updateProgress();
 updateFontControls();
 updateCbckReferenceLink();
+restoreCharacterProfile();
 showDraftRestore();

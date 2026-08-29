@@ -22,6 +22,7 @@ const app = document.querySelector('#protected-app');
 const status = document.querySelector('#auth-status');
 const loginButton = document.querySelector('#google-login');
 const signOutButton = document.querySelector('#sign-out');
+const prayerConfirm = document.querySelector('#prayer-confirm');
 
 function isAllowedGoogleUser(user) {
   const isGoogleUser = user?.providerData?.some((entry) => entry.providerId === 'google.com');
@@ -38,7 +39,7 @@ function showStudio(user) {
 function showGate(message) {
   app.classList.add('hidden');
   gate.classList.remove('hidden');
-  status.textContent = message;
+  status.textContent = prayerConfirm.checked ? message : '기도문을 읽은 뒤 입장할 수 있습니다.';
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -54,7 +55,14 @@ onAuthStateChanged(auth, (user) => {
   showGate('Google 계정으로 로그인하면 제작 도구가 열립니다.');
 });
 
+prayerConfirm.addEventListener('change', () => {
+  loginButton.disabled = !prayerConfirm.checked;
+  if (prayerConfirm.checked) status.textContent = '마음을 준비했습니다. Google 계정으로 입장해 주세요.';
+  else status.textContent = '기도문을 읽은 뒤 입장할 수 있습니다.';
+});
+
 loginButton.addEventListener('click', async () => {
+  if (!prayerConfirm.checked) return;
   loginButton.disabled = true;
   status.textContent = 'Google 로그인 창을 열고 있습니다.';
   try {

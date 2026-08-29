@@ -10,6 +10,7 @@ let whisperTranscriber = null;
 let autoTranscriptChunks = [];
 let transcriptionSequence = 0;
 let draftSaveTimer = null;
+let scriptureSuggestions = [];
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
 const FONT_PROFILES = {
   serif: {label:'명조체 · 경건한 말씀', family:'Georgia, "Noto Serif KR", "Malgun Myeongjo", serif'},
@@ -24,11 +25,20 @@ $('#transcript').addEventListener('input', (event) => {
   updateProgress();
 });
 $('#source').addEventListener('input', updateProgress);
+$('#source').addEventListener('input', updateCbckReferenceLink);
 $('#copyright-check').addEventListener('change', updateProgress);
 document.querySelectorAll('input[name="font-mode"]').forEach((input) => input.addEventListener('change', updateFontControls));
 $('#font-manual').addEventListener('change', updateFontControls);
 $('#result-font-mode').addEventListener('change', updateResultFontControls);
 $('#result-font-manual').addEventListener('change', updateResultFontControls);
+$('#compare-scripture').addEventListener('click', compareScriptureText);
+$('#approved-scripture').addEventListener('input', () => {
+  $('#review-report').classList.add('hidden');
+  $('#review-message').textContent = '본문을 바꾸었습니다. 자막 차이 찾아보기를 눌러 새로 비교하세요.';
+});
+$('#review-rights-check').addEventListener('change', () => {
+  $('#review-report').classList.add('hidden');
+});
 
 $('#audio-file').addEventListener('change', (event) => loadAudio(event.target.files[0]));
 ['dragenter','dragover'].forEach((name) => $('#dropzone').addEventListener(name, (event) => {
@@ -125,6 +135,110 @@ function setTranscribeProgress(percent, title, message) {
   $('#transcribe-message').textContent = message;
 }
 
+const CBCK_BOOK_CODES = {
+  '창세기':'Gn','탈출기':'Ex','레위기':'Lv','민수기':'Nm','신명기':'Dt','여호수아기':'Jos','판관기':'Jgs','룻기':'Ru','사무엘기 상권':'1Sm','사무엘기 하권':'2Sm','열왕기 상권':'1Kgs','열왕기 하권':'2Kgs','마태오':'Mt','마태':'Mt','마르코':'Mk','루카':'Lk','요한':'Jn','사도행전':'Acts','로마':'Rom','코린토 1':'1Cor','코린토 2':'2Cor','갈라티아':'Gal','에페소':'Eph','필리피':'Phil','콜로새':'Col','테살로니카 1':'1Thes','테살로니카 2':'2Thes','티모테오 1':'1Tm','티모테오 2':'2Tm','티토':'Ti','필레몬':'Phlm','히브리':'Heb','야고보':'Jas','베드로 1':'1Pt','베드로 2':'2Pt','요한 1':'1Jn','요한 2':'2Jn','요한 3':'3Jn','유다':'Jude','요한 묵시록':'Rv','묵시록':'Rv'
+};
+
+function updateCbckReferenceLink() {
+  const link = $('#cbck-reference-link');
+  const parsed = parseBibleReference($('#source').value);
+  if (!parsed) {
+    link.classList.add('hidden');
+    return;
+  }
+  link.href = `https://bible.cbck.or.kr/Knb/${parsed.book}/${parsed.chapter}`;
+  link.textContent = `CBCK ${parsed.label} 위치 열기 ↗`;
+  link.classList.remove('hidden');
+}
+
+function parseBibleReference(value) {
+  const compact = String(value || '').replace(/\s+/g, ' ').trim();
+  const match = compact.match(/([가-힣]+(?:\s*[가-힣]+)?)\s*(\d+)\s*[,.:]\s*\d+/);
+  if (!match) return null;
+  const rawBook = match[1].replace(/\s+/g, ' ').trim();
+  const book = CBCK_BOOK_CODES[rawBook];
+  return book ? {book, chapter: Number(match[2]), label: `${rawBook} ${match[2]}장`} : null;
+}
+
+function normalizeForComparison(value) {
+  return String(value || '').toLowerCase().replace(/[^0-9a-z가-힣\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function splitReviewUnits(value) {
+  const clean = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return [];
+  const punctuated = clean.match(/[^.!?。！？]+[.!?。！？]?/g)?.map((item) => item.trim()).filter(Boolean) || [];
+  if (punctuated.length > 1) return punctuated;
+  const words = clean.split(' ');
+  const units = [];
+  for (let index = 0; index < words.length; index += 18) units.push(words.slice(index, index + 18).join(' '));
+  return units;
+}
+
+function wordSimilarity(left, right) {
+  const leftWords = normalizeForComparison(left).split(' ').filter(Boolean);
+  const rightWords = normalizeForComparison(right).split(' ').filter(Boolean);
+  if (!leftWords.length || !rightWords.length) return 0;
+  const rightSet = new Set(rightWords);
+  const overlap = leftWords.filter((word) => rightSet.has(word)).length;
+  const precision = overlap / leftWords.length;
+  const recall = overlap / rightWords.length;
+  return precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
+}
+
+function compareScriptureText() {
+  const transcript = $('#transcript').value.trim();
+  const reference = $('#approved-scripture').value.trim();
+  const report = $('#review-report');
+  if (!transcript) return alert('먼저 자동 자막을 만든 뒤 비교해 주세요.');
+  if (!reference) return alert('검토할 성경 본문을 붙여 넣어 주세요.');
+  if (!$('#review-rights-check').checked) return alert('검토용 본문 사용 권한을 먼저 확인해 주세요.');
+  const autoUnits = splitReviewUnits(transcript);
+  const referenceUnits = splitReviewUnits(reference);
+  scriptureSuggestions = autoUnits.map((autoText, index) => {
+    let bestText = '';
+    let score = 0;
+    referenceUnits.forEach((referenceText) => {
+      const candidate = wordSimilarity(autoText, referenceText);
+      if (candidate > score) { score = candidate; bestText = referenceText; }
+    });
+    return {index, autoText, suggestedText: bestText, score, applied: false};
+  }).filter((item) => item.score >= .54 && normalizeForComparison(item.autoText) !== normalizeForComparison(item.suggestedText));
+  report.classList.remove('hidden');
+  if (!scriptureSuggestions.length) {
+    report.innerHTML = '<div class="review-empty">자동으로 바꿀 만큼 확실한 차이를 찾지 못했습니다. 해설·기도 구간일 수 있으니 직접 확인해 주세요.</div>';
+    $('#review-message').textContent = '자동 적용 없이 검토를 마쳤습니다.';
+    return;
+  }
+  report.innerHTML = `<p class="review-summary">${scriptureSuggestions.length}개 구간에서 유사한 본문을 찾았습니다. 각 제안은 적용 전까지 자막을 바꾸지 않습니다.</p>${scriptureSuggestions.map((item) => `<article class="review-suggestion" data-review-index="${item.index}"><div><small>일치도 ${Math.round(item.score * 100)}% · 해설처럼 보이는 구간은 적용하지 마세요</small><p><del>${escapeHtml(item.autoText)}</del></p><p><ins>${escapeHtml(item.suggestedText)}</ins></p></div><button class="ghost" type="button" data-apply-review="${item.index}">이 제안 적용</button></article>`).join('')}<p class="review-warning">적용한 문장은 사용자가 제공한 검토 본문으로만 교체됩니다. CBCK 사이트 본문을 자동 수집하거나 복사하지 않습니다.</p>`;
+  report.querySelectorAll('[data-apply-review]').forEach((button) => button.addEventListener('click', () => applyScriptureSuggestion(Number(button.dataset.applyReview))));
+  $('#review-message').textContent = '제안을 하나씩 읽고 필요한 것만 적용하세요.';
+}
+
+function applyScriptureSuggestion(index) {
+  const suggestion = scriptureSuggestions.find((item) => item.index === index);
+  if (!suggestion || suggestion.applied) return;
+  const transcript = $('#transcript').value;
+  const position = transcript.indexOf(suggestion.autoText);
+  if (position < 0) return alert('자막이 변경되어 이 제안을 적용할 수 없습니다. 다시 비교해 주세요.');
+  $('#transcript').value = `${transcript.slice(0, position)}${suggestion.suggestedText}${transcript.slice(position + suggestion.autoText.length)}`;
+  $('#transcript').dispatchEvent(new Event('input',{bubbles:true}));
+  suggestion.applied = true;
+  if (currentProject) {
+    currentProject.transcript = $('#transcript').value;
+    currentProject.captions = captionsFromReviewedTranscript(currentProject.transcript, currentProject.duration);
+    currentProject.scriptureReview ||= {mode:'user_provided_authorized_text'};
+    currentProject.scriptureReview.referenceText = $('#review-rights-check').checked ? $('#approved-scripture').value.trim() : '';
+    currentProject.scriptureReview.rightsConfirmed = $('#review-rights-check').checked;
+    currentProject.scriptureReview.suggestions = scriptureSuggestions.map(({index: itemIndex, score, applied}) => ({index:itemIndex, score, applied}));
+    currentProject.scriptureReview.reviewedAt = new Date().toISOString();
+  }
+  const row = $(`[data-review-index="${index}"]`);
+  if (row) { row.querySelector('button').textContent = '적용됨'; row.querySelector('button').disabled = true; }
+  $('#review-message').textContent = '선택한 제안을 자막에 적용했습니다. 다른 제안도 반드시 확인해 주세요.';
+  if (currentProject) persistDraft('검토 승인 자막을 저장했습니다.');
+}
+
 function updateProgress() {
   const items = [
     {ready: audioDuration > 0, id: '#check-audio'},
@@ -204,13 +318,20 @@ async function buildProject(transcript) {
     });
   }
   return {
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
     title,
     source: $('#source').value.trim(),
     duration,
     transcript,
     captions,
+    scriptureReview: {
+      mode: 'user_provided_authorized_text',
+      referenceText: $('#review-rights-check').checked ? $('#approved-scripture').value.trim() : '',
+      rightsConfirmed: $('#review-rights-check').checked,
+      suggestions: scriptureSuggestions.map(({index, score, applied}) => ({index, score, applied})),
+      reviewedAt: scriptureSuggestions.length ? new Date().toISOString() : null
+    },
     font: getSelectedFont(transcript),
     hashtags: makeHashtags(transcript),
     thumbnailPrompt: `고요한 새벽빛 아래 펼쳐진 성경과 따뜻한 빛, ${title}의 정서를 상징하는 절제된 수채화, 오른쪽 제목 여백, 16:9, 이미지 안 글자 없음`,
@@ -235,6 +356,13 @@ function makeTimedCaptions(transcript, chunks, duration) {
     const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 5);
     return {index:index+1,start,end,text};
   });
+}
+
+function captionsFromReviewedTranscript(transcript, duration) {
+  const timed = makeTimedCaptions(transcript, autoTranscriptChunks, duration);
+  if (timed.length) return timed;
+  const units = splitReviewUnits(transcript);
+  return units.map((text, index) => ({index:index + 1, start:index * duration / units.length, end:(index + 1) * duration / units.length, text}));
 }
 
 async function analyzeSpeechWeights(file, sceneTotal) {
@@ -452,7 +580,7 @@ function persistDraft(message = '이 기기에 저장되었습니다.') {
   try {
     const snapshot = {
       project: currentProject,
-      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked},
+      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked, approvedScripture: $('#approved-scripture').value, reviewRights: $('#review-rights-check').checked},
       savedAt: new Date().toISOString(),
       audioName: audioFile?.name || null
     };
@@ -483,12 +611,15 @@ $('#restore-draft').addEventListener('click', () => {
     $('#source').value = draft.form?.source || draft.project.source || '';
     $('#transcript').value = draft.form?.transcript || draft.project.transcript || '';
     $('#copyright-check').checked = Boolean(draft.form?.copyright);
+    $('#approved-scripture').value = draft.form?.approvedScripture || draft.project.scriptureReview?.referenceText || '';
+    $('#review-rights-check').checked = Boolean(draft.form?.reviewRights || draft.project.scriptureReview?.rightsConfirmed);
     currentProject = draft.project;
     currentProject.font ||= getSelectedFont(currentProject.transcript || '');
     document.querySelector(`input[name="font-mode"][value="${currentProject.font.mode || 'auto'}"]`).checked = true;
     $('#font-manual').value = currentProject.font.manual || currentProject.font.resolved || 'serif';
     updateFontControls();
     $('#char-count').textContent = `${$('#transcript').value.length.toLocaleString()}자`;
+    updateCbckReferenceLink();
     renderProject(currentProject);
     $('#save-state').textContent = '저장된 프로젝트를 불러왔습니다. 영상을 다시 만들려면 원본 음성을 다시 선택해 주세요.';
   } catch {
@@ -780,4 +911,5 @@ function escapeHtml(value){const div=document.createElement('div');div.textConte
 
 updateProgress();
 updateFontControls();
+updateCbckReferenceLink();
 showDraftRestore();

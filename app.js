@@ -499,16 +499,18 @@ async function buildProject(transcript) {
     }
     const characters = [...new Set([...chooseSceneCharacters(narration), ...characterProfile.roles])].slice(0,4);
     const setting = chooseSceneSetting(narration);
+    const characterMotion = chooseCharacterMotion(narration, characters);
     const baseCharacterDescription = buildCharacterDescription(characters, narration, setting);
     const savedCharacterDescriptions = characterProfile.characters.map((character) => `${character.name}: ${character.description || characterLabel(character.role)}`).join('; ');
     const characterDescription = [baseCharacterDescription, savedCharacterDescriptions ? `저장한 인물 설정: ${savedCharacterDescriptions}` : '', characterProfile.notes ? `공통 인물 설정: ${characterProfile.notes}` : ''].filter(Boolean).join(' ');
     scenes.push({
       index: index + 1, start, end, narration,
-      prompt: makePrompt(narration, index, characters, characterDescription),
+      prompt: `${makePrompt(narration, index, characters, characterDescription)} 장면 동작: ${characterMotion}.`,
       negativePrompt: commonNegative,
       visual: chooseSceneVisual(narration, index),
       characters,
       setting,
+      characterMotion,
       characterDescription,
       status: 'review_required'
     });
@@ -679,6 +681,16 @@ function chooseSceneCharacters(text) {
   return roles;
 }
 
+function chooseCharacterMotion(text, characters = []) {
+  if (/걷|걸어|따라|여정|길/.test(text)) return '천천히 걸으며 서로를 따라가는 동작';
+  if (/기도|무릎|찬미|감사/.test(text)) return '두 손을 모으고 고요히 기도하는 동작';
+  if (/말씀|가르|설교|전하|대화|묻/.test(text)) return '한 손을 부드럽게 들어 말씀을 전하고 상대가 경청하는 동작';
+  if (/치유|고치|도움|돌보|안수/.test(text)) return '도움이 필요한 이에게 몸을 낮추고 손을 내미는 동작';
+  if (/울|슬퍼|눈물|아파/.test(text)) return '고개를 숙이고 위로받거나 서로를 위로하는 동작';
+  if (/기뻐|기쁨|웃|환호/.test(text)) return '절제된 미소와 감사의 몸짓으로 기뻐하는 동작';
+  return characters.length ? '장면의 말씀을 경청하고 자연스럽게 호흡하는 동작' : '인물 없이 상징과 빛이 천천히 움직이는 장면';
+}
+
 function chooseSceneSetting(text) {
   if (/성당|성전|교회/.test(text)) return 'church';
   if (/바다|강|물|호수/.test(text)) return 'waterside';
@@ -724,7 +736,7 @@ function renderProject(project) {
   $('#scene-list').innerHTML = project.scenes.map((scene,index) => `
     <article class="scene" data-index="${index}">
       <time>${formatTime(scene.start)}–${formatTime(scene.end)}</time>
-      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span></div><label class="character-field">인물 묘사 · 영상 그림용<textarea aria-label="${scene.index}번 인물 묘사">${escapeHtml(scene.characterDescription)}</textarea></label><label class="prompt-field">AI 이미지 프롬프트<textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></label></div>
+      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span><span class="visual-tag">동작 · ${escapeHtml(scene.characterMotion || '상징과 빛의 움직임')}</span></div><label class="character-field">인물 묘사 · 영상 그림용<textarea aria-label="${scene.index}번 인물 묘사">${escapeHtml(scene.characterDescription)}</textarea></label><label class="prompt-field">AI 이미지 프롬프트<textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></label></div>
       <div><select aria-label="${scene.index}번 검수 상태"><option value="review_required">확인 필요</option><option value="verified">원문 확인됨</option></select></div>
     </article>`).join('');
   document.querySelectorAll('.scene textarea, .scene select').forEach((element) => element.addEventListener('input', scheduleDraftSave));
@@ -976,7 +988,7 @@ function drawVideoFrame(ctx, canvas, project, time) {
   ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
-  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local, scene.characterDescription || '');
+  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local, scene.characterDescription || '', scene.characterMotion || '');
 
   const videoFont = FONT_PROFILES[project.font?.resolved]?.family || FONT_PROFILES.serif.family;
 
@@ -1033,7 +1045,7 @@ function drawSceneIllustration(ctx, canvas, visual, colors, local) {
   ctx.restore();
 }
 
-function drawCharacterGroup(ctx, canvas, roles, colors, local, description) {
+function drawCharacterGroup(ctx, canvas, roles, colors, local, description, motion = '') {
   if (!roles.length) return;
   const expanded = [];
   roles.forEach((role) => {
@@ -1048,13 +1060,14 @@ function drawCharacterGroup(ctx, canvas, roles, colors, local, description) {
   ctx.fillStyle = '#071e19';
   ctx.beginPath();ctx.ellipse(canvas.width*.75,820,390,55,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  people.forEach((role,index) => drawPerson(ctx,startX+index*spacing,800,role,colors,local,index,description));
+  people.forEach((role,index) => drawPerson(ctx,startX+index*spacing,800,role,colors,local,index,description,motion));
 }
 
-function drawPerson(ctx, x, groundY, role, colors, local, index, description = '') {
+function drawPerson(ctx, x, groundY, role, colors, local, index, description = '', motion = '') {
   const isChild = role === 'child';
   const scale = isChild ? .68 : role === 'sick' ? .82 : 1;
-  const bob = Math.sin(local*1.2+index)*3;
+  const motionAmount = /걷|따라/.test(motion) ? 6 : /기도|경청/.test(motion) ? 2 : 3;
+  const bob = Math.sin(local*1.2+index)*motionAmount;
   const palettes = {
     jesus:['#f2ead7','#a34f3c','#5c3c2f'], mary:['#355f82','#ede6d2','#46392f'],
     disciple:['#9b7653','#566c59','#43362e'], priest:['#252b2a','#f3efe5','#35302d'],

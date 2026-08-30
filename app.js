@@ -13,6 +13,7 @@ let draftSaveTimer = null;
 let scriptureSuggestions = [];
 let characterLibrary = [];
 let cloudSyncTimer = null;
+const sceneImageCache = new Map();
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
 const CHARACTER_PROFILE_KEY = 'vincentio-character-profile-v1';
 const CHARACTER_LIBRARY_KEY = 'vincentio-character-library-v1';
@@ -468,14 +469,14 @@ $('#generate').addEventListener('click', async () => {
     console.error(error);
     alert('음성 분석 중 오류가 발생했습니다. 다른 MP3 또는 WAV 파일로 다시 시도해 주세요.');
   } finally {
-    button.innerHTML = '5초 장면 설계 만들기 <span>→</span>';
+    button.innerHTML = '10초 장면 설계 만들기 <span>→</span>';
     updateProgress();
   }
 });
 
 async function buildProject(transcript) {
   const duration = Math.max(5, audioDuration);
-  const sceneTotal = Math.ceil(duration / 5);
+  const sceneTotal = Math.ceil(duration / 10);
   const words = transcript.split(/\s+/).filter(Boolean);
   const captions = makeTimedCaptions(transcript, autoTranscriptChunks, duration);
   const speechWeights = captions.length ? Array(sceneTotal).fill(1) : await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
@@ -486,8 +487,8 @@ async function buildProject(transcript) {
   let wordCursor = 0;
   let accumulatedWeight = 0;
   for (let index = 0; index < sceneTotal; index += 1) {
-    const start = index * 5;
-    const end = Math.min(duration, start + 5);
+    const start = index * 10;
+    const end = Math.min(duration, start + 10);
     let narration;
     if (captions.length) {
       narration = captions.filter((caption) => caption.end > start && caption.start < end).map((caption) => caption.text).join(' ');
@@ -552,7 +553,7 @@ function makeTimedCaptions(transcript, chunks, duration) {
     cursor = target;
     const start = Math.max(0, Number(chunk.timestamp[0] || 0));
     const endValue = Number(chunk.timestamp[1]);
-    const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 5);
+    const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 10);
     return {index:index+1,start,end,text};
   });
 }
@@ -587,7 +588,7 @@ async function analyzeSpeechWeights(file, sceneTotal) {
     frames.forEach((energy,index) => {
       if (energy <= threshold) return;
       const time = index * .05;
-      const sceneIndex = Math.min(sceneTotal - 1, Math.floor(time / 5));
+      const sceneIndex = Math.min(sceneTotal - 1, Math.floor(time / 10));
       weights[sceneIndex] += Math.min(3, energy / Math.max(threshold,.001));
     });
     const nonzero = weights.filter(Boolean);
@@ -736,11 +737,16 @@ function renderProject(project) {
   $('#scene-list').innerHTML = project.scenes.map((scene,index) => `
     <article class="scene" data-index="${index}">
       <time>${formatTime(scene.start)}–${formatTime(scene.end)}</time>
-      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span><span class="visual-tag">동작 · ${escapeHtml(scene.characterMotion || '상징과 빛의 움직임')}</span></div><label class="character-field">인물 묘사 · 영상 그림용<textarea aria-label="${scene.index}번 인물 묘사">${escapeHtml(scene.characterDescription)}</textarea></label><label class="prompt-field">AI 이미지 프롬프트<textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></label></div>
+      <div><p><b>${scene.index}.</b> ${escapeHtml(scene.narration || '묵상의 여백')}</p><div class="scene-tags"><span class="visual-tag">배경 · ${visualLabel(scene.visual)}</span><span class="person-tag">인물 · ${scene.characters?.length ? scene.characters.map(characterLabel).join(' · ') : '원고에 언급 없음'}</span><span class="visual-tag">동작 · ${escapeHtml(scene.characterMotion || '상징과 빛의 움직임')}</span></div><label class="character-field">인물 묘사 · 영상 그림용<textarea aria-label="${scene.index}번 인물 묘사">${escapeHtml(scene.characterDescription)}</textarea></label><label class="prompt-field">배경·인물 이미지 프롬프트<textarea aria-label="${scene.index}번 이미지 프롬프트">${escapeHtml(scene.prompt)}</textarea></label><label class="image-upload">완성 이미지 삽입 <input type="file" accept="image/png,image/jpeg,image/webp" data-scene-image="${scene.index}"></label>${scene.imageData ? '<small class="image-ready">✓ 삽입된 이미지가 영상에 사용됩니다</small>' : '<small>이미지를 삽입하면 영상 제작에 사용됩니다.</small>'}</div>
       <div><select aria-label="${scene.index}번 검수 상태"><option value="review_required">확인 필요</option><option value="verified">원문 확인됨</option></select></div>
     </article>`).join('');
   document.querySelectorAll('.scene textarea, .scene select').forEach((element) => element.addEventListener('input', scheduleDraftSave));
   document.querySelectorAll('.scene select').forEach((element) => element.addEventListener('change', scheduleDraftSave));
+  document.querySelectorAll('[data-scene-image]').forEach((input) => input.addEventListener('change', (event) => {
+    const file = event.target.files?.[0]; if (!file) return;
+    const scene = currentProject.scenes[Number(event.target.closest('.scene').dataset.index)];
+    const reader = new FileReader(); reader.onload = () => { scene.imageData = reader.result; renderProject(currentProject); scheduleDraftSave(); }; reader.readAsDataURL(file);
+  }));
   persistDraft('새 프로젝트가 이 기기에 저장되었습니다.');
   window.scrollTo({top: $('#result-panel').offsetTop - 85,behavior:'smooth'});
 }
@@ -987,8 +993,23 @@ function drawVideoFrame(ctx, canvas, project, time) {
   glow.addColorStop(0, `${colors[2]}99`); glow.addColorStop(1, `${colors[2]}00`);
   ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
-  drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local, scene.characterDescription || '', scene.characterMotion || '');
+  if (scene.imageData) {
+    let image = sceneImageCache.get(scene.index);
+    if (!image) {
+      image = new Image(); image.src = scene.imageData; sceneImageCache.set(scene.index, image);
+    }
+    if (image.complete && image.naturalWidth) {
+      const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+      const width = image.naturalWidth * scale; const height = image.naturalHeight * scale;
+      ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+      ctx.fillStyle = 'rgba(8,18,24,.22)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
+    }
+  } else {
+    drawSceneIllustration(ctx, canvas, scene.visual, colors, local);
+    drawCharacterGroup(ctx, canvas, scene.characters || [], colors, local, scene.characterDescription || '', scene.characterMotion || '');
+  }
 
   const videoFont = FONT_PROFILES[project.font?.resolved]?.family || FONT_PROFILES.serif.family;
 

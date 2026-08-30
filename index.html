@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#19362d">
-  <meta name="description" content="음성에서 5초 장면표와 자막, 이미지 프롬프트를 만드는 빈첸시오 말씀방 영상 제작 도구">
+  <meta name="description" content="음성에서 10초 장면표와 자동 자막, 이미지 프롬프트를 만드는 빈첸시오 말씀방 영상 제작 도구">
   <title>빈첸시오 말씀방 영상 스튜디오</title>
   <link rel="icon" type="image/jpeg" href="./assets/vincencio-logo.jpg?v=1">
   <link rel="manifest" href="./manifest.webmanifest?v=20260830-2">
@@ -49,7 +49,7 @@
       <div class="hero-copy">
         <p class="eyebrow"><span></span> VOICE TO SACRED STORY</p>
         <h1>당신의 목소리가<br><em>아름다운 말씀 영상</em>으로</h1>
-        <p class="lead">녹음한 말씀을 올리면 5초 장면 구성부터 자막, 성경 기반 이미지 프롬프트와 YouTube 게시 자료까지 한곳에서 준비합니다.</p>
+        <p class="lead">녹음한 말씀을 올리면 10초 장면 구성부터 자동 자막, 성경 기반 배경·인물 이미지 프롬프트와 YouTube 게시 자료까지 한곳에서 준비합니다.</p>
         <div class="hero-actions">
           <a class="cta" href="#studio">새 영상 설계하기 <span>→</span></a>
           <span class="safe-note">✓ 설치 없음 &nbsp;·&nbsp; ✓ 음성은 내 기기에서 처리</span>
@@ -65,7 +65,7 @@
 
     <section class="feature-strip" id="features" aria-label="주요 기능">
       <article><i>01</i><div><strong>음성 길이 분석</strong><span>녹음의 전체 흐름을 확인합니다</span></div></article>
-      <article><i>02</i><div><strong>5초 장면 설계</strong><span>말씀에 맞는 장면을 나눕니다</span></div></article>
+      <article><i>02</i><div><strong>10초 장면 설계</strong><span>말씀에 맞는 장면을 나눕니다</span></div></article>
       <article><i>03</i><div><strong>자막·프롬프트</strong><span>SRT와 이미지 지시문을 만듭니다</span></div></article>
     </section>
 
@@ -77,7 +77,7 @@
     <section class="studio" id="studio">
       <aside class="rail" aria-label="제작 단계">
         <div class="rail-step active"><b>01</b><span>음성·원고</span></div>
-        <div class="rail-step"><b>02</b><span>5초 장면</span></div>
+        <div class="rail-step"><b>02</b><span>10초 장면</span></div>
         <div class="rail-step"><b>03</b><span>검수·저장</span></div>
       </aside>
 
@@ -173,9 +173,9 @@
           <label class="consent"><input id="copyright-check" type="checkbox"> 성경·전례문 인용 범위와 출처를 확인했습니다.</label>
           <div class="create-bar">
             <p id="next-action">먼저 음성 파일을 선택해 주세요.</p>
-            <button class="primary" id="generate" disabled>5초 장면 설계 만들기 <span>→</span></button>
+            <button class="primary" id="generate" disabled>10초 장면 설계 만들기 <span>→</span></button>
           </div>
-          <p class="output-guide"><b>생성 결과:</b> 실제 MP4 영상이 아니라 5초 장면표, 자막, 이미지 프롬프트가 만들어집니다.</p>
+          <p class="output-guide"><b>생성 결과:</b> 자동 자막이 포함된 10초 장면표와 배경·인물 이미지 프롬프트가 만들어집니다.</p>
         </section>
 
         <section class="panel hidden" id="result-panel">
@@ -198,7 +198,7 @@
             </article>
           </div>
 
-          <div class="section-title"><div><small>SCENE PLAN</small><h3>5초 장면표</h3></div><span id="scene-count"></span></div>
+          <div class="section-title"><div><small>SCENE PLAN</small><h3>10초 장면표 · 이미지 삽입</h3></div><span id="scene-count"></span></div>
           <div class="project-settings">
             <div><strong>영상 글꼴</strong><span id="project-font-summary"></span></div>
             <div class="result-font-controls"><select id="result-font-mode" aria-label="영상 글꼴 모드"><option value="auto">자동 추천</option><option value="manual">직접 선택</option></select><select id="result-font-manual" aria-label="영상 수동 글꼴"><option value="serif">명조체</option><option value="clean">고딕체</option><option value="warm">따뜻한 바탕체</option></select></div>

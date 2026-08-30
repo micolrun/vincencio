@@ -1,0 +1,8 @@
+.git
+.github
+.env
+secrets
+data/jobs
+__pycache__
+*.pyc
+node_modules

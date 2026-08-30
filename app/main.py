@@ -10,6 +10,7 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import ROOT, settings
@@ -18,6 +19,13 @@ from .pipeline import build_manifest, generate_scene_image
 
 
 app = FastAPI(title="빈첸시오 말씀방 영상 스튜디오")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origin_list,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.add_middleware(SessionMiddleware, secret_key=settings.app_secret, same_site="lax", https_only=False)
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 oauth = OAuth()

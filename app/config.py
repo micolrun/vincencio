@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     remotion_enabled: bool = True
     remotion_command: str = "npm run render"
     max_upload_mb: int = 200
+    allowed_origins: str = "http://127.0.0.1:8010,http://localhost:8010,https://micolrun.github.io"
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
     @property
     def jobs_dir(self) -> Path:

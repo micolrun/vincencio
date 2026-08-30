@@ -46,27 +46,31 @@ $('#transcript').addEventListener('input', (event) => {
   updateProgress();
 });
 $('#source').addEventListener('input', updateProgress);
-$('#source').addEventListener('input', updateCbckReferenceLink);
 $('#copyright-check').addEventListener('change', updateProgress);
 document.querySelectorAll('input[name="font-mode"]').forEach((input) => input.addEventListener('change', updateFontControls));
 $('#font-manual').addEventListener('change', updateFontControls);
 $('#result-font-mode').addEventListener('change', updateResultFontControls);
 $('#result-font-manual').addEventListener('change', updateResultFontControls);
-$('#compare-scripture').addEventListener('click', compareScriptureText);
-['daily-reading-1','daily-reading-2','daily-gospel'].forEach((id) => $('#' + id).addEventListener('input', () => {
-  const parts = [['제1독서',$('#daily-reading-1').value],['제2독서',$('#daily-reading-2').value],['복음·묵상',$('#daily-gospel').value]].filter(([,value]) => value.trim()).map(([label,value]) => `[${label}]\n${value.trim()}`);
-  if (parts.length) $('#approved-scripture').value = parts.join('\n\n');
-}));
+['caption-reading-1','caption-reading-2','caption-gospel','caption-meditation'].forEach((id) => $('#' + id).addEventListener('input', syncCaptionSections));
 $('#toggle-character-editor').addEventListener('click', toggleCharacterEditor);
 $('#save-character-profile').addEventListener('click', saveCharacterProfile);
 $('#add-character-profile').addEventListener('click', addCharacterProfile);
-$('#approved-scripture').addEventListener('input', () => {
-  $('#review-report').classList.add('hidden');
-  $('#review-message').textContent = '본문을 바꾸었습니다. 자막 차이 찾아보기를 눌러 새로 비교하세요.';
-});
-$('#review-rights-check').addEventListener('change', () => {
-  $('#review-report').classList.add('hidden');
-});
+function syncCaptionSections() {
+  const parts = [['제1독서','caption-reading-1'],['제2독서','caption-reading-2'],['복음','caption-gospel'],['묵상','caption-meditation']].map(([label,id]) => {
+    const value = $('#' + id).value.trim(); return value ? `[${label}]\n${value}` : '';
+  }).filter(Boolean);
+  $('#transcript').value = parts.join('\n\n');
+  $('#transcript').dispatchEvent(new Event('input',{bubbles:true}));
+}
+
+function getCaptionSections() {
+  return {
+    reading1: $('#caption-reading-1').value.trim(),
+    reading2: $('#caption-reading-2').value.trim(),
+    gospel: $('#caption-gospel').value.trim(),
+    meditation: $('#caption-meditation').value.trim()
+  };
+}
 
 $('#audio-file').addEventListener('change', (event) => loadAudio(event.target.files[0]));
 ['dragenter','dragover'].forEach((name) => $('#dropzone').addEventListener(name, (event) => {
@@ -144,6 +148,7 @@ async function autoTranscribeAudio(file, force = false) {
       timestamp: [Number(chunk.timestamp?.[0] || 0), Number(chunk.timestamp?.[1] ?? audioDuration)]
     })).filter((chunk) => chunk.text);
     $('#transcript').value = text;
+    $('#caption-meditation').value = text;
     $('#transcript').dispatchEvent(new Event('input',{bubbles:true}));
     box.classList.add('done');
     setTranscribeProgress(100, '자동 자막이 완성되었습니다', '아래 자막을 읽어보고 잘못 들은 부분만 고쳐주세요.');
@@ -255,11 +260,7 @@ function applyScriptureSuggestion(index) {
   if (currentProject) {
     currentProject.transcript = $('#transcript').value;
     currentProject.captions = captionsFromReviewedTranscript(currentProject.transcript, currentProject.duration);
-    currentProject.scriptureReview ||= {mode:'user_provided_authorized_text'};
-    currentProject.scriptureReview.referenceText = $('#review-rights-check').checked ? $('#approved-scripture').value.trim() : '';
-    currentProject.scriptureReview.rightsConfirmed = $('#review-rights-check').checked;
-    currentProject.scriptureReview.suggestions = scriptureSuggestions.map(({index: itemIndex, score, applied}) => ({index:itemIndex, score, applied}));
-    currentProject.scriptureReview.reviewedAt = new Date().toISOString();
+    currentProject.captionSections = getCaptionSections();
   }
   const row = $(`[data-review-index="${index}"]`);
   if (row) { row.querySelector('button').textContent = '적용됨'; row.querySelector('button').disabled = true; }
@@ -528,13 +529,7 @@ async function buildProject(transcript) {
     duration,
     transcript,
     captions,
-    scriptureReview: {
-      mode: 'user_provided_authorized_text',
-      referenceText: $('#review-rights-check').checked ? $('#approved-scripture').value.trim() : '',
-      rightsConfirmed: $('#review-rights-check').checked,
-      suggestions: scriptureSuggestions.map(({index, score, applied}) => ({index, score, applied})),
-      reviewedAt: scriptureSuggestions.length ? new Date().toISOString() : null
-    },
+    captionSections: getCaptionSections(),
     characterProfile,
     font: getSelectedFont(transcript),
     hashtags: makeHashtags(transcript),
@@ -799,7 +794,7 @@ function persistDraft(message = '이 기기에 저장되었습니다.') {
   try {
     const snapshot = {
       project: currentProject,
-      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, copyright: $('#copyright-check').checked, approvedScripture: $('#approved-scripture').value, reviewRights: $('#review-rights-check').checked, characterProfile: getCharacterProfile()},
+      form: {title: $('#title').value, source: $('#source').value, transcript: $('#transcript').value, captionSections: getCaptionSections(), copyright: $('#copyright-check').checked, characterProfile: getCharacterProfile()},
       savedAt: new Date().toISOString(),
       audioName: audioFile?.name || null
     };
@@ -831,8 +826,12 @@ $('#restore-draft').addEventListener('click', () => {
     $('#source').value = draft.form?.source || draft.project.source || '';
     $('#transcript').value = draft.form?.transcript || draft.project.transcript || '';
     $('#copyright-check').checked = Boolean(draft.form?.copyright);
-    $('#approved-scripture').value = draft.form?.approvedScripture || draft.project.scriptureReview?.referenceText || '';
-    $('#review-rights-check').checked = Boolean(draft.form?.reviewRights || draft.project.scriptureReview?.rightsConfirmed);
+    const sections = draft.form?.captionSections || draft.project.captionSections || {};
+    $('#caption-reading-1').value = sections.reading1 || '';
+    $('#caption-reading-2').value = sections.reading2 || '';
+    $('#caption-gospel').value = sections.gospel || '';
+    $('#caption-meditation').value = sections.meditation || draft.form?.transcript || draft.project.transcript || '';
+    syncCaptionSections();
     const characterProfile = draft.form?.characterProfile || draft.project.characterProfile || {};
     const selectedIds = characterProfile.selectedIds || characterLibrary.filter((character) => (characterProfile.roles || []).includes(character.role)).map((character) => character.id);
     renderCharacterDirectory(selectedIds);
@@ -843,7 +842,6 @@ $('#restore-draft').addEventListener('click', () => {
     $('#font-manual').value = currentProject.font.manual || currentProject.font.resolved || 'serif';
     updateFontControls();
     $('#char-count').textContent = `${$('#transcript').value.length.toLocaleString()}자`;
-    updateCbckReferenceLink();
     renderProject(currentProject);
     $('#save-state').textContent = '저장된 프로젝트를 불러왔습니다. 영상을 다시 만들려면 원본 음성을 다시 선택해 주세요.';
   } catch {
@@ -1151,6 +1149,5 @@ function escapeHtml(value){const div=document.createElement('div');div.textConte
 
 updateProgress();
 updateFontControls();
-updateCbckReferenceLink();
 restoreCharacterProfile();
 showDraftRestore();

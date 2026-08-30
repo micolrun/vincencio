@@ -159,16 +159,9 @@
           </section>
 
           <section class="scripture-review" aria-labelledby="scripture-review-title">
-            <div class="scripture-review-head">
-              <div><small>SAFE REVIEW</small><h3 id="scripture-review-title">성경 자막 검토</h3><p>CBCK 본문을 자동으로 가져오거나 저장하지 않습니다. 사용 권한이 있는 본문만 붙여 넣어 자막과 비교하세요.</p></div>
-              <a id="cbck-reference-link" class="ghost" href="https://missa.cbck.or.kr/DailyMissa" target="_blank" rel="noreferrer">오늘의 매일미사 열기 ↗</a>
-            </div>
-            <label for="approved-scripture">검토용 성경 본문 <span>선택</span></label>
-            <div class="daily-missa-fields"><label>제1독서<textarea id="daily-reading-1" rows="2" placeholder="매일미사에서 확인한 제1독서"></textarea></label><label>제2독서<textarea id="daily-reading-2" rows="2" placeholder="해당하는 날만 입력"></textarea></label><label>복음·묵상<textarea id="daily-gospel" rows="2" placeholder="복음 또는 묵상 원문"></textarea></label></div>
-            <textarea id="approved-scripture" rows="6" placeholder="사용 권한이 있는 성경 본문 또는 직접 검토한 문장을 붙여 넣으세요. 이 텍스트는 이 브라우저의 프로젝트 저장본에만 포함됩니다."></textarea>
-            <label class="consent compact"><input id="review-rights-check" type="checkbox"> 이 본문을 자막 검토·수정에 사용할 권한이 있음을 확인합니다.</label>
-            <div class="review-actions"><button class="ghost" id="compare-scripture" type="button">입력한 매일미사 본문과 비교</button><span id="review-message">매일미사에서 확인한 본문을 붙여 넣으면 자동 자막과 비교 제안을 만듭니다.</span></div>
-            <div class="review-report hidden" id="review-report" aria-live="polite"></div>
+            <div class="scripture-review-head"><div><small>CAPTION SECTIONS</small><h3 id="scripture-review-title">녹음 자막 구성</h3><p>성경 원문 비교 없이, 녹음 내용을 전례 순서에 맞춰 네 구역으로 입력합니다. 입력 내용은 자동 자막과 장면 설계에 사용됩니다.</p></div><a class="ghost" href="https://missa.cbck.or.kr/DailyMissa" target="_blank" rel="noreferrer">매일미사 순서 참고 ↗</a></div>
+            <div class="daily-missa-fields caption-sections"><label>제1독서<textarea id="caption-reading-1" rows="3" placeholder="녹음한 제1독서 자막"></textarea></label><label>제2독서<textarea id="caption-reading-2" rows="3" placeholder="녹음한 제2독서 자막"></textarea></label><label>복음<textarea id="caption-gospel" rows="3" placeholder="녹음한 복음 자막"></textarea></label><label>묵상<textarea id="caption-meditation" rows="3" placeholder="녹음한 묵상 자막"></textarea></label></div>
+            <p class="sync-note">음성을 올리면 자동 자막은 묵상 칸에 먼저 입력됩니다. 필요하면 네 구역으로 나누어 편집하세요.</p>
           </section>
 
           <label class="consent"><input id="copyright-check" type="checkbox"> 성경·전례문 인용 범위와 출처를 확인했습니다.</label>

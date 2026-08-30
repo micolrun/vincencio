@@ -53,6 +53,10 @@ $('#font-manual').addEventListener('change', updateFontControls);
 $('#result-font-mode').addEventListener('change', updateResultFontControls);
 $('#result-font-manual').addEventListener('change', updateResultFontControls);
 $('#compare-scripture').addEventListener('click', compareScriptureText);
+['daily-reading-1','daily-reading-2','daily-gospel'].forEach((id) => $('#' + id).addEventListener('input', () => {
+  const parts = [['제1독서',$('#daily-reading-1').value],['제2독서',$('#daily-reading-2').value],['복음·묵상',$('#daily-gospel').value]].filter(([,value]) => value.trim()).map(([label,value]) => `[${label}]\n${value.trim()}`);
+  if (parts.length) $('#approved-scripture').value = parts.join('\n\n');
+}));
 $('#toggle-character-editor').addEventListener('click', toggleCharacterEditor);
 $('#save-character-profile').addEventListener('click', saveCharacterProfile);
 $('#add-character-profile').addEventListener('click', addCharacterProfile);

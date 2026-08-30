@@ -4,7 +4,7 @@
 
 ## GitHub 중심 운영
 
-이 저장소가 프로그램 코드의 단일 원본입니다. Pull Request와 `main`/`master` 푸시는 GitHub Actions에서 Python 테스트, Remotion 구성 검사와 10초 렌더링 시험을 실행합니다. `v0.1.0` 같은 태그를 푸시하면 Windows 배포 ZIP과 SHA-256 체크섬을 GitHub Release에 자동 게시합니다.
+이 저장소가 프로그램 코드의 단일 원본입니다. Pull Request와 `main`/`master` 푸시는 GitHub Actions에서 Python 테스트, Remotion 구성 검사와 20초 장면 렌더링 시험을 실행합니다. `v0.1.0` 같은 태그를 푸시하면 Windows 배포 ZIP과 SHA-256 체크섬을 GitHub Release에 자동 게시합니다.
 
 빈첸시오님 PC에서는 소스코드를 직접 수정하거나 `git pull`하지 않습니다. 검증된 Release ZIP만 설치하며, 음성·영상·API 키는 GitHub에 올리지 않습니다. 결정 배경은 [ADR-0001](docs/adr/0001-github-centered-delivery.md), 보안 규칙은 [SECURITY.md](SECURITY.md)를 참고하세요.
 

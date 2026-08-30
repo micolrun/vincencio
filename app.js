@@ -473,14 +473,14 @@ $('#generate').addEventListener('click', async () => {
     console.error(error);
     alert('음성 분석 중 오류가 발생했습니다. 다른 MP3 또는 WAV 파일로 다시 시도해 주세요.');
   } finally {
-    button.innerHTML = '10초 장면 설계 만들기 <span>→</span>';
+    button.innerHTML = '20초 장면 설계 만들기 <span>→</span>';
     updateProgress();
   }
 });
 
 async function buildProject(transcript) {
   const duration = Math.max(5, audioDuration);
-  const sceneTotal = Math.ceil(duration / 10);
+  const sceneTotal = Math.ceil(duration / 20);
   const words = transcript.split(/\s+/).filter(Boolean);
   const captions = makeTimedCaptions(transcript, autoTranscriptChunks, duration);
   const speechWeights = captions.length ? Array(sceneTotal).fill(1) : await analyzeSpeechWeights(audioFile, sceneTotal).catch(() => Array(sceneTotal).fill(1));
@@ -491,8 +491,8 @@ async function buildProject(transcript) {
   let wordCursor = 0;
   let accumulatedWeight = 0;
   for (let index = 0; index < sceneTotal; index += 1) {
-    const start = index * 10;
-    const end = Math.min(duration, start + 10);
+    const start = index * 20;
+    const end = Math.min(duration, start + 20);
     let narration;
     if (captions.length) {
       narration = captions.filter((caption) => caption.end > start && caption.start < end).map((caption) => caption.text).join(' ');
@@ -557,7 +557,7 @@ function makeTimedCaptions(transcript, chunks, duration) {
     cursor = target;
     const start = Math.max(0, Number(chunk.timestamp[0] || 0));
     const endValue = Number(chunk.timestamp[1]);
-    const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 10);
+    const end = Math.min(duration, Number.isFinite(endValue) && endValue > start ? endValue : start + 20);
     return {index:index+1,start,end,text};
   });
 }
@@ -592,7 +592,7 @@ async function analyzeSpeechWeights(file, sceneTotal) {
     frames.forEach((energy,index) => {
       if (energy <= threshold) return;
       const time = index * .05;
-      const sceneIndex = Math.min(sceneTotal - 1, Math.floor(time / 10));
+      const sceneIndex = Math.min(sceneTotal - 1, Math.floor(time / 20));
       weights[sceneIndex] += Math.min(3, energy / Math.max(threshold,.001));
     });
     const nonzero = weights.filter(Boolean);

@@ -17,6 +17,7 @@ const sceneImageCache = new Map();
 const DRAFT_STORAGE_KEY = 'vincentio-video-draft-v2';
 const CHARACTER_PROFILE_KEY = 'vincentio-character-profile-v1';
 const CHARACTER_LIBRARY_KEY = 'vincentio-character-library-v1';
+const YOUTUBE_SETTINGS_KEY = 'vincentio-youtube-settings-v1';
 const FONT_PROFILES = {
   serif: {label:'명조체 · 경건한 말씀', family:'Georgia, "Noto Serif KR", "Malgun Myeongjo", serif'},
   clean: {label:'고딕체 · 또렷한 자막', family:'"Noto Sans KR", "Malgun Gothic", Arial, sans-serif'},
@@ -47,6 +48,14 @@ $('#transcript').addEventListener('input', (event) => {
 });
 $('#source').addEventListener('input', updateProgress);
 $('#copyright-check').addEventListener('change', updateProgress);
+$('#youtube-connect').addEventListener('click', () => {
+  $('#youtube-message').textContent = 'YouTube OAuth는 Cloud Run 백엔드 배포 후 활성화됩니다. 현재는 자동 게시 없이 수동 운영만 가능합니다.';
+});
+$('#youtube-save').addEventListener('click', () => {
+  localStorage.setItem(YOUTUBE_SETTINGS_KEY, JSON.stringify({channelUrl:$('#youtube-channel-url').value.trim(), videoUrl:$('#youtube-video-url').value.trim()}));
+  $('#youtube-connection-status').textContent = '설정 저장됨';
+  $('#youtube-message').textContent = '채널·영상 주소를 이 브라우저에 저장했습니다.';
+});
 document.querySelectorAll('input[name="font-mode"]').forEach((input) => input.addEventListener('change', updateFontControls));
 $('#font-manual').addEventListener('change', updateFontControls);
 $('#result-font-mode').addEventListener('change', updateResultFontControls);
@@ -370,6 +379,16 @@ function restoreCharacterProfile() {
     $('#character-notes').value = profile.notes || '';
     $('#character-profile-message').textContent = '저장한 등장인물 설정을 불러왔습니다.';
   } catch { /* Ignore unavailable or invalid local data. */ }
+}
+
+function restoreYoutubeSettings() {
+  try {
+    const settings = JSON.parse(localStorage.getItem(YOUTUBE_SETTINGS_KEY) || 'null');
+    if (!settings) return;
+    $('#youtube-channel-url').value = settings.channelUrl || '';
+    $('#youtube-video-url').value = settings.videoUrl || '';
+    $('#youtube-connection-status').textContent = '설정 저장됨';
+  } catch { /* Ignore unavailable or invalid data. */ }
 }
 
 function updateProgress() {
@@ -1150,4 +1169,5 @@ function escapeHtml(value){const div=document.createElement('div');div.textConte
 updateProgress();
 updateFontControls();
 restoreCharacterProfile();
+restoreYoutubeSettings();
 showDraftRestore();

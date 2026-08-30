@@ -148,6 +148,14 @@
             <div class="field-note"><span id="char-count">0자</span><span>원문에 없는 사건·인물·대사는 이미지 프롬프트에 추가하지 않습니다.</span></div>
           </div>
 
+          <section class="youtube-hub" aria-labelledby="youtube-hub-title">
+            <div class="scripture-review-head"><div><small>CHANNEL CARE</small><h3 id="youtube-hub-title">YouTube 채널 운영</h3><p>자동 좋아요·반복 댓글 없이, 내 채널의 성과를 확인하고 댓글 답변을 승인하는 공간입니다.</p></div><span class="badge" id="youtube-connection-status">연결 준비</span></div>
+            <div class="form-grid"><div class="field"><label for="youtube-channel-url">내 YouTube 채널 주소</label><input id="youtube-channel-url" type="url" placeholder="https://www.youtube.com/@채널명"></div><div class="field"><label for="youtube-video-url">관리할 영상 주소</label><input id="youtube-video-url" type="url" placeholder="댓글·성과를 확인할 영상 URL"></div></div>
+            <div class="youtube-metrics"><div><b id="metric-views">—</b><span>조회수</span></div><div><b id="metric-likes">—</b><span>좋아요</span></div><div><b id="metric-comments">—</b><span>댓글</span></div><div><b id="metric-subscribers">—</b><span>구독자 증감</span></div></div>
+            <div class="review-actions"><button class="ghost" id="youtube-connect" type="button">YouTube 연결 준비</button><button class="ghost" id="youtube-save" type="button">채널 설정 저장</button><span id="youtube-message">Cloud Run에 YouTube OAuth를 배포하면 성과·댓글을 불러올 수 있습니다.</span></div>
+            <label for="comment-draft">댓글 답변 초안 <span>승인 후 게시</span></label><textarea id="comment-draft" rows="3" placeholder="시청자 댓글을 읽고 직접 답변을 작성하세요. 자동 게시되지 않습니다."></textarea>
+          </section>
+
           <section class="character-editor" aria-labelledby="character-editor-title">
             <div class="character-editor-head"><div><small>CHARACTER MODE</small><h3 id="character-editor-title">등장인물 편집 모드</h3><p>등장인물을 미리 정하고 공통 묘사를 저장할 수 있습니다. 장면별 세부 묘사는 장면 설계 후에도 계속 편집할 수 있습니다.</p></div><button class="ghost" id="toggle-character-editor" type="button">등장인물 편집 열기</button></div>
             <div class="character-editor-body hidden" id="character-editor-body">

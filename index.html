@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#19362d">
   <meta name="description" content="음성에서 5초 장면표와 자막, 이미지 프롬프트를 만드는 빈첸시오 말씀방 영상 제작 도구">
   <title>빈첸시오 말씀방 영상 스튜디오</title>
+  <link rel="icon" type="image/jpeg" href="./assets/vincencio-logo.jpg?v=1">
   <link rel="manifest" href="./manifest.webmanifest?v=20260830-2">
   <link rel="stylesheet" href="./styles.css?v=20260830-2">
   <link rel="stylesheet" href="./homepage.css?v=20260830-2">
@@ -14,7 +15,7 @@
   <section id="auth-gate" class="auth-gate" aria-live="polite">
     <div class="heaven-rays" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="auth-card prayer-card">
-      <div class="gate-mark" aria-hidden="true"><i>✦</i><span></span><span></span></div>
+      <div class="gate-mark" aria-hidden="true"><img src="./assets/vincencio-logo.jpg" alt="빈첸시오 말씀방 로고"><i>✦</i><span></span><span></span></div>
       <p class="eyebrow"><span></span> ENTER WITH PRAYER</p>
       <h1>말씀의 문을 열며</h1>
       <p class="auth-intro">좋은 영상은 기술보다 먼저, 말씀을 전하려는 마음에서 시작됩니다.</p>
@@ -30,7 +31,7 @@
   </section>
   <div id="protected-app" class="hidden">
   <header class="topbar">
-    <a class="brand" href="./"><i class="brand-mark">V</i><span class="brand-copy"><b>VINCENTIO</b><small>말씀 영상 스튜디오</small></span></a>
+    <a class="brand" href="./"><img class="brand-logo" src="./assets/vincencio-logo.jpg" alt="빈첸시오 말씀방 로고"><span class="brand-copy"><b>VINCENTIO</b><small>말씀 영상 스튜디오</small></span></a>
     <nav aria-label="주요 메뉴">
       <a href="#studio">영상 만들기</a>
       <a href="#features">주요 기능</a>
@@ -83,7 +84,7 @@
       <div class="content">
         <section class="panel" id="input-panel">
           <div class="panel-head">
-            <div><small>NEW PROJECT</small><h2>새 영상 설계</h2><p class="panel-intro">아래 순서대로 입력하면 버튼이 자동으로 활성화됩니다.</p></div>
+            <div class="panel-title-with-logo"><img class="studio-logo" src="./assets/vincencio-logo.jpg" alt=""><div><small>NEW PROJECT</small><h2>새 영상 설계</h2><p class="panel-intro">아래 순서대로 입력하면 버튼이 자동으로 활성화됩니다.</p></div></div>
             <span class="badge" id="mode-badge">브라우저 모드</span>
           </div>
           <div class="draft-banner hidden" id="draft-banner">
@@ -179,7 +180,7 @@
 
         <section class="panel hidden" id="result-panel">
           <div class="panel-head">
-            <div><small>REVIEW PROJECT</small><h2 id="result-title">영상 설계</h2></div>
+            <div class="panel-title-with-logo"><img class="studio-logo" src="./assets/vincencio-logo.jpg" alt=""><div><small>REVIEW PROJECT</small><h2 id="result-title">영상 설계</h2></div></div>
             <span class="badge warn">사람 검수 필요</span>
           </div>
 
